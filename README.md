@@ -10,10 +10,10 @@ Pair devices over your local network, then use the desktop and Android apps to t
 
 | File | For |
 | --- | --- |
-| `LinkToLinux-Android.apk` | Android phones |
-| `linktolinux_0.1.0_all.deb` | Debian and Ubuntu |
-| `linktolinux-0.1.0-1.noarch.rpm` | Fedora and compatible RPM distributions |
-| `LinkToLinux-0.1.0-Linux.tar.gz` | Other Linux distributions with the listed runtime dependencies |
+| [Download Android APK](./LinkToLinux-Android.apk) | Android phones |
+| [Download Debian/Ubuntu package](./linktolinux_0.1.0_all.deb) | Debian and Ubuntu |
+| [Download Fedora RPM](./linktolinux-0.1.0-1.noarch.rpm) | Fedora and compatible RPM distributions |
+| [Download portable Linux archive](./LinkToLinux-0.1.0-Linux.tar.gz) | Other Linux distributions with the listed runtime dependencies |
 
 ## Install
 
