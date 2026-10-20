@@ -22,12 +22,16 @@ Link to Linux is an independent phone companion for Linux, inspired by the conve
 
 ## Releases
 
-| Version | Release notes | Downloads |
-| --- | --- | --- |
-| **1.0.0** · Current | Improved reconnect and photo browsing, saved desktop feature preferences, and clearer connection and photo-loading states. See the [1.0.0 changelog](./CHANGELOG.md). | [Android APK](./LinkToLinux-Android.apk) · [Debian/Ubuntu](./linktolinux_1.0.0_all.deb) · [Fedora](./linktolinux-1.0.0-1.noarch.rpm) · [Portable Linux](./LinkToLinux-1.0.0-Linux.tar.gz) |
-| **0.1.1** | Android APK update and community links. This historical APK has been superseded by 1.0.0. | [Android APK](./LinkToLinux-0.1.1-Android.apk) |
-| **0.1.0** | First published release. | [Android APK](./LinkToLinux-0.1.0-Android.apk) · [Debian/Ubuntu](./linktolinux_0.1.0_all.deb) · [Fedora](./linktolinux-0.1.0-1.noarch.rpm) · [Portable Linux](./LinkToLinux-0.1.0-Linux.tar.gz) |
-| **Upcoming** | Future releases will be listed here with their version, changes, and downloads. | — |
+### 1.0.0 · Current release
+
+Improved reconnect and photo browsing, saved desktop feature preferences, and clearer connection and photo-loading states. See the [1.0.0 changelog](./CHANGELOG.md).
+
+| Download | Package |
+| --- | --- |
+| [Android APK](./LinkToLinux-Android.apk) | Android |
+| [Debian/Ubuntu](./linktolinux_1.0.0_all.deb) | `.deb` |
+| [Fedora](./linktolinux-1.0.0-1.noarch.rpm) | `.rpm` |
+| [Portable Linux](./LinkToLinux-1.0.0-Linux.tar.gz) | `.tar.gz` |
 
 Some features require Android permissions and an active paired connection.
 
