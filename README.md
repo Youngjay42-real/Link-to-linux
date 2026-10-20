@@ -1,68 +1,50 @@
 # Link to Linux
-**Join my discord.** https://discord.gg/sMC9cV9nfU
 
-**Your Android phone, connected to your Linux desktop.**
+![Illustrated overview of Link to Linux on Android and Linux desktop](./screenshots/linktolinux-overview.png)
 
-Link to Linux is a phone companion for Linux. It is inspired by the convenience of Microsoft Link to Windows and Phone Link, and built as an independent project for Linux desktop users.
+<p align="center"><strong>Your Android phone, connected to your Linux desktop.</strong></p>
 
-Pair devices over your local network, then use the desktop and Android apps to transfer files, browse phone photos, check phone status, forward notifications, and share clipboard text. Some features require Android permissions and an active connection.
+Link to Linux is an independent phone companion for Linux, inspired by the convenience of Microsoft Link to Windows. Pair over your local network to share files, browse phone photos, view device status, forward notifications, and opt in to text clipboard sharing.
 
-## Downloads
+*The artwork above is an illustration of the product, not a screenshot of a live connection.*
 
-| File | For |
+## Features
+
+![Link to Linux features: file sharing, photo browsing, notifications, and text clipboard](./screenshots/linktolinux-features.png)
+
+Some features require Android permissions and an active paired connection.
+
+## Releases
+
+### 1.0.0
+
+Improves reconnect behavior and photo browsing, remembers desktop feature preferences, and clarifies connection and photo-loading states. Read the [1.0.0 changelog](./CHANGELOG.md).
+
+| Download | Package |
 | --- | --- |
-| [Download Android APK](./LinkToLinux-Android.apk) | Android phones |
-| [Download Debian/Ubuntu package](./linktolinux_0.1.0_all.deb) | Debian and Ubuntu |
-| [Download Fedora RPM](./linktolinux-0.1.0-1.noarch.rpm) | Fedora and compatible RPM distributions |
-| [Download portable Linux archive](./LinkToLinux-0.1.0-Linux.tar.gz) | Other Linux distributions with the listed runtime dependencies |
+| [Android APK](./LinkToLinux-Android.apk) | Android |
+| [Debian/Ubuntu](./linktolinux_1.0.0_all.deb) | `.deb` |
+| [Fedora](./linktolinux-1.0.0-1.noarch.rpm) | `.rpm` |
+| [Other Linux distributions](./LinkToLinux-1.0.0-Linux.tar.gz) | Portable archive |
 
 ## Install
 
-### Debian or Ubuntu
-
-Open the `.deb` file in the system software installer. The package manager will install the desktop app and its dependencies. Launch **Link to Linux** from the applications menu.
-
-### Fedora
-
-Open the `.rpm` file in Software, or install it from a terminal:
+On Debian or Ubuntu, open the `.deb` in the system software installer. On Fedora, open the `.rpm` or run:
 
 ```bash
-sudo dnf install ./linktolinux-0.1.0-1.noarch.rpm
+sudo dnf install ./linktolinux-1.0.0-1.noarch.rpm
 ```
 
-### Other Linux distributions
+For other Linux distributions, extract the portable archive and run `usr/bin/linktolinux`. GTK 4, libadwaita, Python 3.11+, PyGObject, Segno, and OpenSSL are required.
 
-Extract the tarball and run `usr/bin/linktolinux`. Install these system dependencies with your distribution's package manager first:
+Install `LinkToLinux-Android.apk` on Android. Because the APK is distributed outside Google Play, Play Protect may warn about or block installation. Only install it if you trust that it came from this project’s release page; if Android requires turning off app scanning, turn Play Protect back on immediately afterward. Notification access may separately require **Allow restricted settings** in the app info screen. See [Google Play Protect help](https://support.google.com/googleplay/answer/2812853).
 
-- Python 3.11 or newer
-- GTK 4 and libadwaita
-- PyGObject and Segno for Python
-- OpenSSL
+## Pairing
 
-### Android
-
-Install `LinkToLinux-Android.apk`. Since it is distributed outside Google Play, Google Play Protect may warn about or block installation. Depending on the Android version and device, installation may require temporarily turning off **Scan apps with Play Protect** in Play Store → profile → Play Protect → Settings. Only do this if you trust that you downloaded the APK from this project's official release page, and turn Play Protect back on immediately after installation. Keep Android's **Allow restricted settings** permission steps below separate: they are needed for notification access, not APK installation. [Google Play Protect information](https://support.google.com/googleplay/answer/2812853).
-
-If Android blocks notification access for this sideloaded app, open **Settings → Apps → Link to Linux → ⋮ → Allow restricted settings**, then enable it under **Special app access → Notification access**.
-
-## Pair your devices
-
-Connect the phone and desktop to the same local network. Open **Devices & pairing** on the desktop, start pairing, and scan its QR code with Link to Linux on Android. Confirm the secure pairing in the phone app.
+Connect both devices to the same local network. Start pairing from **Devices & pairing** on the desktop, then scan the desktop QR code with Link to Linux on Android.
 
 ## About
 
-Built by **Young Jay** at **YoungTechsperts**. Find more projects at [youngai.site](https://youngai.site) or visit [Young Jay on GitHub](https://github.com/Youngjay42-real).
+Built by **Young Jay** at **YoungTechsperts**. [GitHub profile](https://github.com/Youngjay42-real) · [More projects](https://youngai.site) · [Join the Discord community](https://discord.gg/sMC9cV9nfU)
 
-Join the community on [Discord](https://discord.gg/sMC9cV9nfU) for project updates, questions, and discussion.
-
-Link to Linux is not affiliated with or endorsed by Microsoft. The project is distributed under the MIT License.
-
-## MIT License
-
-Copyright (c) 2026 Young Jay
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+Link to Linux is an independent project and is not affiliated with Microsoft. Licensed under the MIT License.
