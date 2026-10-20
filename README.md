@@ -8,6 +8,18 @@
 
 Link to Linux is an independent phone companion for Linux, inspired by the convenience of Microsoft Link to Windows. Pair over your local network to share files, browse phone photos, view device status, forward notifications, and opt in to text clipboard sharing.
 
+## Screenshots
+
+### Desktop
+
+![Link to Linux desktop home screen](./screenshots/desktop-home.png)
+
+### Android
+
+<p align="center">
+  <img src="./screenshots/android-home.png" alt="Link to Linux Android home screen" width="320">
+</p>
+
 ## Releases
 
 | Version | Release notes | Downloads |
