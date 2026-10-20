@@ -40,7 +40,9 @@ Extract the tarball and run `usr/bin/linktolinux`. Install these system dependen
 
 ### Android
 
-Install `LinkToLinux-Android.apk`. If Android blocks notification access for this sideloaded app, open **Settings → Apps → Link to Linux → ⋮ → Allow restricted settings**, then enable it under **Special app access → Notification access**.
+Install `LinkToLinux-Android.apk`. Since it is distributed outside Google Play, Google Play Protect may warn about or block installation. Depending on the Android version and device, installation may require temporarily turning off **Scan apps with Play Protect** in Play Store → profile → Play Protect → Settings. Only do this if you trust that you downloaded the APK from this project's official release page, and turn Play Protect back on immediately after installation. Keep Android's **Allow restricted settings** permission steps below separate: they are needed for notification access, not APK installation. [Google Play Protect information](https://support.google.com/googleplay/answer/2812853).
+
+If Android blocks notification access for this sideloaded app, open **Settings → Apps → Link to Linux → ⋮ → Allow restricted settings**, then enable it under **Special app access → Notification access**.
 
 ## Pair your devices
 
@@ -49,6 +51,8 @@ Connect the phone and desktop to the same local network. Open **Devices & pairin
 ## About
 
 Built by **Young Jay** at **YoungTechsperts**. Find more projects at [youngai.site](https://youngai.site) or visit [Young Jay on GitHub](https://github.com/Youngjay42-real).
+
+Join the community on [Discord](https://discord.gg/ZD7ucwj2k) for project updates, questions, and discussion.
 
 Link to Linux is not affiliated with or endorsed by Microsoft. The project is distributed under the MIT License.
 
