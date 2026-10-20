@@ -1,31 +1,23 @@
-# Link to Linux
+<p align="center">
+  <img src="./assets/linktolinux.svg" alt="Link to Linux desktop app icon" width="112">
+</p>
 
-![Illustrated overview of Link to Linux on Android and Linux desktop](./screenshots/linktolinux-overview.png)
+<h1 align="center">Link to Linux</h1>
 
 <p align="center"><strong>Your Android phone, connected to your Linux desktop.</strong></p>
 
 Link to Linux is an independent phone companion for Linux, inspired by the convenience of Microsoft Link to Windows. Pair over your local network to share files, browse phone photos, view device status, forward notifications, and opt in to text clipboard sharing.
 
-*The artwork above is an illustration of the product, not a screenshot of a live connection.*
-
-## Features
-
-![Link to Linux features: file sharing, photo browsing, notifications, and text clipboard](./screenshots/linktolinux-features.png)
-
-Some features require Android permissions and an active paired connection.
-
 ## Releases
 
-### 1.0.0
+| Version | Release notes | Downloads |
+| --- | --- | --- |
+| **1.0.0** · Current | Improved reconnect and photo browsing, saved desktop feature preferences, and clearer connection and photo-loading states. See the [1.0.0 changelog](./CHANGELOG.md). | [Android APK](./LinkToLinux-Android.apk) · [Debian/Ubuntu](./linktolinux_1.0.0_all.deb) · [Fedora](./linktolinux-1.0.0-1.noarch.rpm) · [Portable Linux](./LinkToLinux-1.0.0-Linux.tar.gz) |
+| **0.1.1** | Android APK update and community links. This historical APK has been superseded by 1.0.0. | [Android APK](./LinkToLinux-0.1.1-Android.apk) |
+| **0.1.0** | First published release. | [Android APK](./LinkToLinux-0.1.0-Android.apk) · [Debian/Ubuntu](./linktolinux_0.1.0_all.deb) · [Fedora](./linktolinux-0.1.0-1.noarch.rpm) · [Portable Linux](./LinkToLinux-0.1.0-Linux.tar.gz) |
+| **Upcoming** | Future releases will be listed here with their version, changes, and downloads. | — |
 
-Improves reconnect behavior and photo browsing, remembers desktop feature preferences, and clarifies connection and photo-loading states. Read the [1.0.0 changelog](./CHANGELOG.md).
-
-| Download | Package |
-| --- | --- |
-| [Android APK](./LinkToLinux-Android.apk) | Android |
-| [Debian/Ubuntu](./linktolinux_1.0.0_all.deb) | `.deb` |
-| [Fedora](./linktolinux-1.0.0-1.noarch.rpm) | `.rpm` |
-| [Other Linux distributions](./LinkToLinux-1.0.0-Linux.tar.gz) | Portable archive |
+Some features require Android permissions and an active paired connection.
 
 ## Install
 
@@ -37,7 +29,7 @@ sudo dnf install ./linktolinux-1.0.0-1.noarch.rpm
 
 For other Linux distributions, extract the portable archive and run `usr/bin/linktolinux`. GTK 4, libadwaita, Python 3.11+, PyGObject, Segno, and OpenSSL are required.
 
-Install `LinkToLinux-Android.apk` on Android. Because the APK is distributed outside Google Play, Play Protect may warn about or block installation. Only install it if you trust that it came from this project’s release page; if Android requires turning off app scanning, turn Play Protect back on immediately afterward. Notification access may separately require **Allow restricted settings** in the app info screen. See [Google Play Protect help](https://support.google.com/googleplay/answer/2812853).
+Install `LinkToLinux-Android.apk` on Android. Because the APK is distributed outside Google Play, Play Protect may warn about or block installation. Only install it if you trust that it came from this project's release page; if Android requires turning off app scanning, turn Play Protect back on immediately afterward. Notification access may separately require **Allow restricted settings** in the app info screen. See [Google Play Protect help](https://support.google.com/googleplay/answer/2812853).
 
 ## Pairing
 
