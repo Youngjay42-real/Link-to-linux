@@ -52,7 +52,7 @@ Connect the phone and desktop to the same local network. Open **Devices & pairin
 
 Built by **Young Jay** at **YoungTechsperts**. Find more projects at [youngai.site](https://youngai.site) or visit [Young Jay on GitHub](https://github.com/Youngjay42-real).
 
-Join the community on [Discord](https://discord.gg/ZD7ucwj2k) for project updates, questions, and discussion.
+Join the community on [Discord](https://discord.gg/sMC9cV9nfU) for project updates, questions, and discussion.
 
 Link to Linux is not affiliated with or endorsed by Microsoft. The project is distributed under the MIT License.
 
