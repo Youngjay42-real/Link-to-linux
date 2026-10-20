@@ -1,5 +1,6 @@
 # Link to Linux
-**Join my discord.** https://discord.gg/ZD7ucwj2k
+**Join my discord.** https://discord.gg/sMC9cV9nfU
+
 **Your Android phone, connected to your Linux desktop.**
 
 Link to Linux is a phone companion for Linux. It is inspired by the convenience of Microsoft Link to Windows and Phone Link, and built as an independent project for Linux desktop users.
