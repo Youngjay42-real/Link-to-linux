@@ -1,16 +1,14 @@
 # Link to Linux 1.0.0
 
-## Fixes and improvements
+## Changes
 
+- Added track details and playback controls for active Android media sessions on the desktop.
+- Added media permission status and refreshed session detection.
+- Updated the Android launcher and navigation icons to match the desktop branding.
 - Reconnect to a saved desktop without pairing again when the desktop app is running.
-- If **Refresh from phone** has been used once, refresh recent phone photos automatically after later connections.
-- Keep previously loaded photo thumbnails visible while the phone is offline, and show clearer disconnected, empty, and refresh states.
-- Save the desktop notification synchronization preference so it remains enabled after the app restarts.
-- Persist clipboard preference and download folder alongside the notification setting.
-- Refresh the Photos page when a phone connects or disconnects, and disable photo refresh while offline.
+- Refresh recent phone photos after reconnection and retain loaded thumbnails while offline.
+- Save desktop notification and clipboard preferences and the download folder.
 
-## Notes
+Media controls require Android notification access and an active media session. Photo browsing and notification forwarding require their corresponding Android permissions.
 
-- Photo browsing requires Android photo access and an active connection to the desktop.
-- Notification forwarding requires notification access on Android and the notification setting enabled on both devices.
-- Link to Linux is an independent project inspired by Microsoft Link to Windows. It is not affiliated with Microsoft.
+Link to Linux is an independent project inspired by Microsoft Link to Windows. It is not affiliated with Microsoft.

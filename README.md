@@ -6,7 +6,7 @@
 
 <p align="center"><strong>Your Android phone, connected to your Linux desktop.</strong></p>
 
-Link to Linux is an independent phone companion for Linux, inspired by the convenience of Microsoft Link to Windows. Pair over your local network to share files, browse phone photos, view device status, forward notifications, and opt in to text clipboard sharing.
+Link to Linux is an independent phone companion for Linux, inspired by the convenience of Microsoft Link to Windows. Pair over your local network to share files, browse phone photos, view device status, control supported phone media sessions, forward notifications, and opt in to text clipboard sharing.
 
 ## Screenshots
 
@@ -24,7 +24,7 @@ Link to Linux is an independent phone companion for Linux, inspired by the conve
 
 ### 1.0.0 · Current release
 
-Improved reconnect and photo browsing, saved desktop feature preferences, and clearer connection and photo-loading states. See the [1.0.0 changelog](./CHANGELOG.md).
+Adds Android media playback controls to the desktop and updates the Android icon set. Saved connections, photo refresh, and media permission reporting have also been improved. See the [1.0.0 changelog](./CHANGELOG.md).
 
 | Download | Package |
 | --- | --- |
@@ -33,7 +33,7 @@ Improved reconnect and photo browsing, saved desktop feature preferences, and cl
 | [Fedora](./linktolinux-1.0.0-1.noarch.rpm) | `.rpm` |
 | [Portable Linux](./LinkToLinux-1.0.0-Linux.tar.gz) | `.tar.gz` |
 
-Some features require Android permissions and an active paired connection.
+Media controls require Android notification access, an active media session, and an active paired connection. Other features may require additional Android permissions.
 
 ## Install
 
