@@ -26,12 +26,14 @@ Link to Linux is an independent phone companion for Linux, inspired by the conve
 
 Adds Android media playback controls to the desktop and updates the Android icon set. Saved connections, photo refresh, and media permission reporting have also been improved. See the [1.0.0 changelog](./CHANGELOG.md).
 
+Visit [GitHub Releases](https://github.com/Youngjay42-real/Link-to-linux/releases) for downloads and release history. To get notified when an update is published, choose **Watch → Custom → Releases** on the repository page.
+
 | Download | Package |
 | --- | --- |
-| [Android APK](./LinkToLinux-Android.apk) | Android |
-| [Debian/Ubuntu](./linktolinux_1.0.0_all.deb) | `.deb` |
-| [Fedora](./linktolinux-1.0.0-1.noarch.rpm) | `.rpm` |
-| [Portable Linux](./LinkToLinux-1.0.0-Linux.tar.gz) | `.tar.gz` |
+| [Android APK](https://github.com/Youngjay42-real/Link-to-linux/releases/latest/download/LinkToLinux-Android.apk) | Android |
+| [Debian/Ubuntu](https://github.com/Youngjay42-real/Link-to-linux/releases/latest/download/linktolinux_1.0.0_all.deb) | `.deb` |
+| [Fedora](https://github.com/Youngjay42-real/Link-to-linux/releases/latest/download/linktolinux-1.0.0-1.noarch.rpm) | `.rpm` |
+| [Portable Linux](https://github.com/Youngjay42-real/Link-to-linux/releases/latest/download/LinkToLinux-1.0.0-Linux.tar.gz) | `.tar.gz` |
 
 Media controls require Android notification access, an active media session, and an active paired connection. Other features may require additional Android permissions.
 
