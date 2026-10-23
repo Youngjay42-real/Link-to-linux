@@ -28,7 +28,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -64,6 +68,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -73,6 +78,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -98,9 +104,11 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.channels.Channel
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.ByteArrayOutputStream
@@ -120,6 +128,13 @@ import javax.net.ssl.SSLSocket
 import javax.net.ssl.X509TrustManager
 
 private const val PREFS_NAME = "link_to_linux_pairing"
+
+private data class FileTransferProgress(
+    val filename: String,
+    val direction: String,
+    val transferredBytes: Long,
+    val totalBytes: Long,
+)
 
 private fun hasNotificationListenerAccess(context: Context): Boolean = runCatching {
     context.getSystemService(NotificationManager::class.java)
@@ -176,6 +191,9 @@ fun LinkToLinuxApp(darkMode: Boolean, pairingLink: String?, onDarkModeChanged: (
     val context = LocalContext.current
     val preferences = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
     val scope = rememberCoroutineScope()
+    val remoteInputQueue = remember { Channel<RemoteInputCommand>(Channel.UNLIMITED) }
+    val transferProgressState = remember { MutableStateFlow<FileTransferProgress?>(null) }
+    val fileTransferProgress by transferProgressState.collectAsState()
     val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         requestBackgroundConnectionExemption(context)
     }
@@ -228,6 +246,28 @@ fun LinkToLinuxApp(darkMode: Boolean, pairingLink: String?, onDarkModeChanged: (
         onDispose { activity?.lifecycle?.removeObserver(observer) }
     }
     BackHandler(enabled = page != "Home") { page = "Home" }
+
+    LaunchedEffect(liveSession) {
+        val session = liveSession ?: return@LaunchedEffect
+        for (command in remoteInputQueue) {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    session.sendRemoteInput(
+                        command.action,
+                        command.dx,
+                        command.dy,
+                        command.button,
+                        command.text,
+                        command.key,
+                        command.repeat,
+                    )
+                }
+            }
+            result.onFailure {
+                if (liveSession === session) transferMessage = "Remote input failed: ${it.message}"
+            }
+        }
+    }
 
     LaunchedEffect(deviceId) {
         val savedToken = preferences.getString("desktop_reconnect_token", "").orEmpty()
@@ -288,9 +328,18 @@ fun LinkToLinuxApp(darkMode: Boolean, pairingLink: String?, onDarkModeChanged: (
     fun sendSelected(uri: Uri, category: String) {
         val session = liveSession
         if (session == null) { transferMessage = "Connect to the desktop before sending."; return }
+        val filename = uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: "Selected file"
+        transferProgressState.value = FileTransferProgress(filename, "Sending", 0L, -1L)
         scope.launch {
             transferMessage = "Sending…"
-            val result = withContext(Dispatchers.IO) { runCatching { session.sendFile(context.contentResolver, uri, category) } }
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    session.sendFile(context.contentResolver, uri, category) { sent, total ->
+                        transferProgressState.value = FileTransferProgress(filename, "Sending", sent, total)
+                    }
+                }
+            }
+            transferProgressState.value = null
             transferMessage = result.fold({
                 postTransferNotification(context, "Desktop received ${it}", "The file was verified and saved on your Linux desktop.")
                 "Sent ${it}. Saved in the desktop Downloads folder."
@@ -309,11 +358,17 @@ fun LinkToLinuxApp(darkMode: Boolean, pairingLink: String?, onDarkModeChanged: (
             if (session == null) {
                 transferMessage = "Desktop disconnected before the file could be received."
             } else {
+                transferProgressState.value = FileTransferProgress(offer.filename, "Receiving", 0L, offer.sizeBytes)
                 scope.launch {
                     transferMessage = "Receiving ${offer.filename}…"
                     val result = withContext(Dispatchers.IO) {
-                        runCatching { session.receiveFile(context.contentResolver, uri, offer) }
+                        runCatching {
+                            session.receiveFile(context.contentResolver, uri, offer) { received, total ->
+                                transferProgressState.value = FileTransferProgress(offer.filename, "Receiving", received, total)
+                            }
+                        }
                     }
+                    transferProgressState.value = null
                     result.fold(
                         onSuccess = {
                             desktopFileOffers.removeAll { it.transferId == offer.transferId }
@@ -342,8 +397,8 @@ fun LinkToLinuxApp(darkMode: Boolean, pairingLink: String?, onDarkModeChanged: (
     }
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
-    val destinations = listOf("Home", "Devices", "Files", "Photos", "Notifications", "Clipboard", "Settings", "About")
-    val navigation = listOf("Home", "Devices", "Files")
+    val destinations = listOf("Home", "Devices", "Remote", "Files", "Photos", "Notifications", "Clipboard", "Settings", "About")
+    val navigation = listOf("Home", "Devices", "Remote", "Files")
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -540,12 +595,27 @@ fun LinkToLinuxApp(darkMode: Boolean, pairingLink: String?, onDarkModeChanged: (
                 "Files" -> FilesPage(
                     desktopName, transferMessage, connected,
                     { filePicker.launch(arrayOf("*/*")) },
+                    transferProgress = fileTransferProgress,
                     offers = desktopFileOffers.toList(),
                     onReceiveOffer = { offer -> selectedDesktopOffer = offer; desktopFilePicker.launch(offer.filename) },
+                )
+                "Remote" -> RemoteInputPage(
+                    connected = connected,
+                    available = desktopStatus?.remoteInputAvailable == true,
+                    enabled = desktopStatus?.remoteInputEnabled == true,
+                    statusMessage = transferMessage,
+                    onInput = { action, dx, dy, button, text, key, repeat ->
+                        if (liveSession == null) {
+                            transferMessage = "Connect to the paired desktop to use remote input."
+                        } else {
+                            remoteInputQueue.trySend(RemoteInputCommand(action, dx, dy, button, text, key, repeat))
+                        }
+                    },
                 )
                 "Photos" -> FilesPage(
                     desktopName, transferMessage, connected,
                     { photoPicker.launch(arrayOf("image/*")) }, photos = true,
+                    transferProgress = fileTransferProgress,
                     phonePhotoAccess = phonePhotoAccess,
                     onGrantPhonePhotoAccess = {
                         val permissions = if (Build.VERSION.SDK_INT >= 34) {
@@ -638,11 +708,110 @@ private fun PageHeader(title: String, subtitle: String) {
 }
 
 @Composable
+private fun RemoteInputPage(
+    connected: Boolean,
+    available: Boolean,
+    enabled: Boolean,
+    statusMessage: String,
+    onInput: (String, Int, Int, Int, String, String, Int) -> Unit,
+) {
+    var text by remember { mutableStateOf("") }
+    var editMessage by remember { mutableStateOf("") }
+    val lastMoveAt = remember { longArrayOf(0L) }
+    PageHeader("Remote input", "Use this phone as a touchpad and keyboard for your Linux desktop.")
+    if (statusMessage.isNotBlank()) {
+        Text(statusMessage, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    if (!connected) {
+        SectionCard("Desktop disconnected", "Reconnect to your paired desktop before sending pointer or keyboard input.")
+        return
+    }
+    if (!available) {
+        SectionCard(
+            "Desktop input support unavailable",
+            "On Wayland, install ydotool and start its user service on the desktop with `systemctl --user start ydotool.service`. The service also needs access to /dev/uinput. On X11, install xdotool. Reopen the Remote page after fixing the desktop setup."
+        )
+        return
+    }
+    if (!enabled) {
+        SectionCard("Remote input is off", "On the desktop, open Remote input and enable ‘Allow remote input from the paired phone’.")
+        return
+    }
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier.fillMaxWidth().height(280.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = { onInput("click", 0, 0, 1, "", "", 1) })
+                }
+                .pointerInput(Unit) {
+                    detectDragGestures { change, dragAmount ->
+                        change.consume()
+                        val now = android.os.SystemClock.uptimeMillis()
+                        if (now - lastMoveAt[0] >= 32) {
+                            lastMoveAt[0] = now
+                            onInput("move", (dragAmount.x * 2.0f).toInt(), (dragAmount.y * 2.0f).toInt(), 1, "", "", 1)
+                        }
+                    }
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("Touch and drag to move · tap to click", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = { onInput("click", 0, 0, 3, "", "", 1) }, modifier = Modifier.weight(1f)) { Text("Right click") }
+        OutlinedButton(onClick = { onInput("scroll", 0, 3, 1, "", "", 1) }, modifier = Modifier.weight(1f)) { Text("Scroll ↑") }
+        OutlinedButton(onClick = { onInput("scroll", 0, -3, 1, "", "", 1) }, modifier = Modifier.weight(1f)) { Text("Scroll ↓") }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = { onInput("key", 0, 0, 1, "", "Backspace", 1) }, modifier = Modifier.weight(1f)) { Text("⌫") }
+        OutlinedButton(onClick = { onInput("key", 0, 0, 1, "", "Enter", 1) }, modifier = Modifier.weight(1f)) { Text("Enter") }
+    }
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Live keyboard", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            OutlinedTextField(
+                value = text,
+                onValueChange = { value ->
+                    val updated = value.take(1024)
+                    when {
+                        updated.startsWith(text) -> {
+                            val added = updated.substring(text.length)
+                            if (added.isNotEmpty()) onInput("type", 0, 0, 1, added, "", 1)
+                            text = updated
+                            editMessage = ""
+                        }
+                        text.startsWith(updated) -> {
+                            val removed = text.length - updated.length
+                            if (removed > 0) onInput("key", 0, 0, 1, "", "Backspace", removed)
+                            text = updated
+                            editMessage = ""
+                        }
+                        else -> {
+                            editMessage = "For live typing, edit at the end of the text."
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Text is sent as you type") },
+                singleLine = true,
+            )
+            if (editMessage.isNotBlank()) {
+                Text(editMessage, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+    Text("Text and pointer input are sent immediately over the encrypted paired connection. You can disable remote input from the desktop at any time.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+@Composable
 private fun DestinationIcon(destination: String) {
     when (destination) {
         "Home" -> Icon(Icons.Filled.Home, contentDescription = destination)
         "Devices" -> Icon(painterResource(R.drawable.ic_nav_devices), contentDescription = destination)
         "Files" -> Icon(painterResource(R.drawable.ic_nav_folder), contentDescription = destination)
+        "Remote" -> Icon(painterResource(R.drawable.ic_nav_remote), contentDescription = destination)
         "Photos" -> Icon(painterResource(R.drawable.ic_nav_photos), contentDescription = destination)
         "Notifications" -> Icon(Icons.Filled.Notifications, contentDescription = destination)
         "Clipboard" -> Icon(painterResource(R.drawable.ic_nav_clipboard), contentDescription = destination)
@@ -674,7 +843,7 @@ private fun HomePage(
     SectionCard("Phone status", if (connected) "This phone's battery, model, and storage are shared with the desktop while connected." else "Phone status appears on the desktop after a connection is active.")
     if (desktopName.isNotBlank()) TextButton(onClick = onPair) { Text("Pair another desktop") }
     Text("FEATURES", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-    listOf("Files" to "Choose files to send to your desktop.", "Photos" to "Browse phone photos or choose photos to send.", "Notifications" to "Forward selected phone notifications to Linux.", "Clipboard" to "Opt in to plain text sharing.").forEach { (title, detail) ->
+    listOf("Remote" to "Control your Linux desktop with this phone.", "Files" to "Choose files to send to your desktop.", "Photos" to "Browse phone photos or choose photos to send.", "Notifications" to "Forward selected phone notifications to Linux.", "Clipboard" to "Opt in to plain text sharing.").forEach { (title, detail) ->
         Card(modifier = Modifier.fillMaxWidth().clickable { onNavigate(title) }) {
             Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -708,7 +877,7 @@ private fun DesktopStatusCard(status: DesktopStatus?, connected: Boolean) {
                 val total = status.storageTotalBytes
                 val free = status.storageFreeBytes
                 if (total > 0L && free >= 0L) {
-                    Text("Storage · ${(free / 1_000_000_000.0).formatBytes()} free of ${(total / 1_000_000_000.0).formatBytes()}", style = MaterialTheme.typography.bodyMedium)
+                    Text("Storage · ${formatFileSize(free)} free of ${formatFileSize(total)}", style = MaterialTheme.typography.bodyMedium)
                     LinearProgressIndicator(progress = (free.toFloat() / total).coerceIn(0f, 1f), modifier = Modifier.fillMaxWidth())
                 }
                 Text(if (connected) "Updated just now" else "Showing the last status received", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -717,7 +886,18 @@ private fun DesktopStatusCard(status: DesktopStatus?, connected: Boolean) {
     }
 }
 
-private fun Double.formatBytes(): String = String.format(java.util.Locale.getDefault(), "%.1f GB", this)
+private fun formatFileSize(bytes: Long): String {
+    if (bytes < 0L) return "Unknown size"
+    if (bytes < 1000L) return "$bytes B"
+    val units = arrayOf("KB", "MB", "GB", "TB")
+    var amount = bytes.toDouble()
+    var unit = -1
+    do {
+        amount /= 1000.0
+        unit++
+    } while (amount >= 1000.0 && unit < units.lastIndex)
+    return String.format(java.util.Locale.getDefault(), "%.1f %s", amount, units[unit])
+}
 
 @Composable
 private fun PairingPage(
@@ -770,6 +950,7 @@ private fun FilesPage(
     transferMessage: String,
     connected: Boolean,
     onChoose: () -> Unit,
+    transferProgress: FileTransferProgress? = null,
     photos: Boolean = false,
     phonePhotoAccess: Boolean = false,
     onGrantPhonePhotoAccess: () -> Unit = {},
@@ -791,14 +972,46 @@ private fun FilesPage(
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(offer.filename, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text("${offer.category.replaceFirstChar { it.uppercase() }} · ${(offer.sizeBytes / 1_000_000.0).formatBytes()}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${offer.category.replaceFirstChar { it.uppercase() }} · ${formatFileSize(offer.sizeBytes)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Button(onClick = { onReceiveOffer(offer) }, enabled = connected) { Text("Save to phone") }
                 }
             }
         }
     }
+    transferProgress?.let { progress ->
+        TransferProgressCard(progress)
+    }
     if (transferMessage.isNotBlank()) SectionCard("Transfer", transferMessage)
     SectionCard("Privacy", "Items are sent over the pinned encrypted connection and saved in the desktop's configured download folder.")
+}
+
+@Composable
+private fun TransferProgressCard(progress: FileTransferProgress) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(
+            Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("${progress.direction} ${progress.filename}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            val total = progress.totalBytes
+            if (total >= 0L) {
+                val fraction = if (total == 0L) 1f else (progress.transferredBytes.toFloat() / total).coerceIn(0f, 1f)
+                LinearProgressIndicator(progress = fraction, modifier = Modifier.fillMaxWidth())
+                Text(
+                    "${formatFileSize(progress.transferredBytes)} of ${formatFileSize(total)} · ${(fraction * 100).toInt()}%",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                Text(
+                    "${formatFileSize(progress.transferredBytes)} sent · total size unavailable",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -881,7 +1094,7 @@ private fun MorePage(onNavigate: (String) -> Unit) {
 @Composable
 private fun AboutPage(onOpenLink: (String) -> Unit) {
     PageHeader("About Link to Linux", "A desktop companion for the Android features you choose to connect.")
-    SectionCard("Link to Linux · 1.0.0", "Pair your phone with a Linux desktop to share selected files and photos, receive device status, and opt in to text clipboard sharing.")
+    SectionCard("Link to Linux · 1.1.0", "Pair your phone with a Linux desktop to share files and photos, control media, use remote input, receive device status, and opt in to notifications and clipboard sharing.")
     SectionCard("Built by Young Jay", "An independent project from YoungTechsperts. YoungTechsperts builds practical software and digital projects.")
     Button(onClick = { onOpenLink("https://github.com/Youngjay42-real") }, modifier = Modifier.fillMaxWidth()) { Text("GitHub profile") }
     Button(onClick = { onOpenLink("https://youngai.site") }, modifier = Modifier.fillMaxWidth()) { Text("Visit youngai.site") }
@@ -1018,6 +1231,8 @@ data class DesktopStatus(
     val charging: Boolean,
     val storageTotalBytes: Long,
     val storageFreeBytes: Long,
+    val remoteInputAvailable: Boolean,
+    val remoteInputEnabled: Boolean,
 ) {
     companion object {
         fun fromJson(value: JSONObject) = DesktopStatus(
@@ -1027,9 +1242,21 @@ data class DesktopStatus(
             charging = value.optBoolean("charging"),
             storageTotalBytes = value.optLong("storage_total_bytes"),
             storageFreeBytes = value.optLong("storage_free_bytes"),
+            remoteInputAvailable = value.optBoolean("remote_input_available"),
+            remoteInputEnabled = value.optBoolean("remote_input_enabled"),
         )
     }
 }
+
+private data class RemoteInputCommand(
+    val action: String,
+    val dx: Int = 0,
+    val dy: Int = 0,
+    val button: Int = 1,
+    val text: String = "",
+    val key: String = "",
+    val repeat: Int = 1,
+)
 
 data class DesktopFileOffer(
     val transferId: String,
@@ -1071,6 +1298,30 @@ internal class LiveLinkSession(private val socket: SSLSocket) {
         return JSONObject(reader.readLine() ?: throw java.io.IOException("Desktop closed the connection."))
     }
 
+    @Synchronized fun sendRemoteInput(
+        action: String,
+        dx: Int,
+        dy: Int,
+        button: Int,
+        text: String,
+        key: String,
+        repeat: Int = 1,
+    ) {
+        val message = JSONObject().put("kind", "remote.input").put("action", action)
+        when (action) {
+            "move" -> message.put("dx", dx).put("dy", dy)
+            "click" -> message.put("button", button)
+            "scroll" -> message.put("dy", dy)
+            "type" -> message.put("text", text)
+            "key" -> message.put("key", key).put("repeat", repeat)
+            else -> throw IllegalArgumentException("Unsupported remote input action.")
+        }
+        val reply = exchange(message)
+        if (reply.optString("kind") != "remote.input.accept") {
+            throw java.io.IOException(reply.optString("message", "Desktop rejected remote input."))
+        }
+    }
+
     @Synchronized fun sendStatus(context: Context, clipboardEnabled: Boolean, phoneRinging: Boolean, mediaCommandAck: String): JSONObject {
         val reply = exchange(readPhoneStatus(context)
             .put("clipboard_enabled", clipboardEnabled)
@@ -1089,7 +1340,12 @@ internal class LiveLinkSession(private val socket: SSLSocket) {
         return reply
     }
 
-    @Synchronized fun receiveFile(resolver: ContentResolver, uri: Uri, offer: DesktopFileOffer): String {
+    @Synchronized fun receiveFile(
+        resolver: ContentResolver,
+        uri: Uri,
+        offer: DesktopFileOffer,
+        onProgress: (Long, Long) -> Unit = { _, _ -> },
+    ): String {
         require(offer.sizeBytes in 0..(256L * 1024 * 1024)) { "Files must be 256 MB or smaller." }
         var started = false
         try {
@@ -1098,10 +1354,13 @@ internal class LiveLinkSession(private val socket: SSLSocket) {
             started = true
             val expectedSize = reply.optLong("size_bytes", -1)
             if (expectedSize != offer.sizeBytes || expectedSize !in 0..(256L * 1024 * 1024)) throw java.io.IOException("Desktop file size changed.")
+            onProgress(0L, expectedSize)
             val output = resolver.openOutputStream(uri, "w") ?: throw java.io.IOException("Could not open the selected save location.")
             val digest = MessageDigest.getInstance("SHA-256")
             var index = 0
             var written = 0L
+            var lastProgressAt = android.os.SystemClock.uptimeMillis()
+            var lastProgressBytes = 0L
             output.use { stream ->
                 while (written < expectedSize) {
                     reply = exchange(JSONObject().put("kind", "file.get.chunk").put("transfer_id", offer.transferId).put("index", index))
@@ -1112,9 +1371,16 @@ internal class LiveLinkSession(private val socket: SSLSocket) {
                     digest.update(chunk)
                     written += chunk.size
                     index++
+                    val now = android.os.SystemClock.uptimeMillis()
+                    if (written - lastProgressBytes >= 128 * 1024 || now - lastProgressAt >= 100) {
+                        onProgress(written, expectedSize)
+                        lastProgressAt = now
+                        lastProgressBytes = written
+                    }
                 }
                 stream.flush()
             }
+            onProgress(written, expectedSize)
             reply = exchange(JSONObject().put("kind", "file.get.finish").put("transfer_id", offer.transferId)
                 .put("sha256", digest.digest().joinToString("") { "%02x".format(it) }))
             started = false
@@ -1208,7 +1474,12 @@ internal class LiveLinkSession(private val socket: SSLSocket) {
         if (reply.optString("kind") != "clipboard.state.accept") throw java.io.IOException(reply.optString("message", "Desktop did not update the clipboard setting."))
     }
 
-    @Synchronized fun sendFile(resolver: ContentResolver, uri: Uri, category: String): String {
+    @Synchronized fun sendFile(
+        resolver: ContentResolver,
+        uri: Uri,
+        category: String,
+        onProgress: (Long, Long) -> Unit = { _, _ -> },
+    ): String {
         val name = queryName(resolver, uri)
         val size = querySize(resolver, uri)
         require(size <= if (category == "preview") 32L * 1024 * 1024 else 256L * 1024 * 1024) {
@@ -1223,9 +1494,12 @@ internal class LiveLinkSession(private val socket: SSLSocket) {
                 .put("size_bytes", size).put("category", category).put("mime_type", mime))
             if (reply.optString("kind") != "file.ready") throw java.io.IOException(reply.optString("message", "Desktop did not accept the transfer."))
             started = true
+            onProgress(0L, size)
             val digest = MessageDigest.getInstance("SHA-256")
             var chunkIndex = 0
             var total = 0L
+            var lastProgressAt = android.os.SystemClock.uptimeMillis()
+            var lastProgressBytes = 0L
             resolver.openInputStream(uri)?.use { input ->
                 val buffer = ByteArray(48 * 1024)
                 while (true) {
@@ -1242,9 +1516,16 @@ internal class LiveLinkSession(private val socket: SSLSocket) {
                     reply = exchange(JSONObject().put("kind", "file.chunk").put("transfer_id", id).put("index", chunkIndex).put("data", encoded))
                     if (reply.optString("kind") != "file.ack" || reply.optInt("index", -1) != chunkIndex) throw java.io.IOException(reply.optString("message", "Desktop did not acknowledge a file chunk."))
                     chunkIndex++
+                    val now = android.os.SystemClock.uptimeMillis()
+                    if (total - lastProgressBytes >= 128 * 1024 || now - lastProgressAt >= 100) {
+                        onProgress(total, size)
+                        lastProgressAt = now
+                        lastProgressBytes = total
+                    }
                 }
             } ?: throw java.io.IOException("Could not open the selected item.")
             if (size >= 0 && size != total) throw java.io.IOException("Selected file changed during transfer.")
+            onProgress(total, if (size >= 0) size else total)
             reply = exchange(JSONObject().put("kind", "file.finish").put("transfer_id", id)
                 .put("sha256", digest.digest().joinToString("") { "%02x".format(it) }))
             started = false

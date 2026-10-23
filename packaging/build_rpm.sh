@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="${VERSION:-1.0.0}"
+VERSION="${VERSION:-1.1.0}"
 ARCH="${RPM_ARCH:-noarch}"
 WORK="$(mktemp -d "$ROOT/dist/.rpmbuild.XXXXXX")"
 RPM_WORK="/tmp/linktolinux-rpm-$$"

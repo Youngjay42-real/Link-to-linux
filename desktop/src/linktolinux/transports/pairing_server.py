@@ -140,6 +140,9 @@ class DesktopPairingServer:
         on_file: Callable[[dict], None] | None = None,
         on_clipboard: Callable[[str, str], bool | None] | None = None,
         clipboard_enabled: Callable[[], bool] | None = None,
+        remote_input_available: Callable[[], bool] | None = None,
+        remote_input_enabled: Callable[[], bool] | None = None,
+        on_remote_input: Callable[..., None] | None = None,
         download_directory: Callable[[], str] | None = None,
     ) -> None:
         self.on_paired = on_paired
@@ -148,6 +151,9 @@ class DesktopPairingServer:
         self.on_file = on_file
         self.on_clipboard = on_clipboard
         self.clipboard_enabled = clipboard_enabled or (lambda: False)
+        self.remote_input_available = remote_input_available or (lambda: False)
+        self.remote_input_enabled = remote_input_enabled or (lambda: False)
+        self.on_remote_input = on_remote_input
         self.download_directory = download_directory or (lambda: str(Path.home() / "Downloads"))
         self.pairing_listeners: list[Callable[[str, str], None]] = []
         self.status_listeners: list[Callable[[str, dict], None]] = []
@@ -332,12 +338,15 @@ class DesktopPairingServer:
                     owner._phone_clipboard_enabled = request.get("clipboard_enabled") is True
                     if isinstance(initial_status, dict):
                         owner._publish_status(device_id, device_name.strip(), initial_status)
+                    desktop_status = _desktop_status(owner.desktop_name)
+                    desktop_status["remote_input_available"] = owner.remote_input_available()
+                    desktop_status["remote_input_enabled"] = owner.remote_input_enabled()
                     self._reply({
                         "kind": "pairing.accept",
                         "protocol_version": "1.0.0",
                         "desktop_name": owner.desktop_name,
                         "desktop_id": owner._fingerprint[:24],
-                        "desktop_status": _desktop_status(owner.desktop_name),
+                        "desktop_status": desktop_status,
                         "reconnect_token": reconnect_token,
                     })
                     while True:
@@ -533,7 +542,10 @@ class DesktopPairingServer:
             self._publish_status(device_id, device_name, message)
             response = {"kind": "status.accept"}
             response["clipboard_enabled"] = self.clipboard_enabled()
-            response["desktop_status"] = _desktop_status(self.desktop_name)
+            desktop_status = _desktop_status(self.desktop_name)
+            desktop_status["remote_input_available"] = self.remote_input_available()
+            desktop_status["remote_input_enabled"] = self.remote_input_enabled()
+            response["desktop_status"] = desktop_status
             response["ring_phone"] = ring_phone
             response["phone_ring_active"] = phone_ring_active
             response["media_command"] = media_command
@@ -651,6 +663,41 @@ class DesktopPairingServer:
                 except Exception:
                     pass
             return {"kind": "clipboard.accept"}
+        if kind == "remote.input":
+            if not self.remote_input_enabled() or self.on_remote_input is None:
+                raise ValueError("Remote input is disabled or unavailable on the desktop.")
+            action = message.get("action")
+            if action == "move":
+                dx, dy = message.get("dx"), message.get("dy")
+                if type(dx) is not int or type(dy) is not int or abs(dx) > 2000 or abs(dy) > 2000:
+                    raise ValueError("Invalid pointer movement.")
+                self.on_remote_input("move", dx=dx, dy=dy)
+            elif action == "click":
+                button = message.get("button", 1)
+                if type(button) is not int or button not in {1, 2, 3}:
+                    raise ValueError("Invalid mouse button.")
+                self.on_remote_input("click", button=button)
+            elif action == "scroll":
+                dy = message.get("dy")
+                if type(dy) is not int or abs(dy) > 20:
+                    raise ValueError("Invalid scroll distance.")
+                self.on_remote_input("scroll", dy=dy)
+            elif action == "type":
+                text = message.get("text")
+                if not isinstance(text, str) or not text or len(text) > 1024:
+                    raise ValueError("Invalid text input.")
+                self.on_remote_input("type", text=text)
+            elif action == "key":
+                key = message.get("key")
+                if not isinstance(key, str) or key not in {"Enter", "Backspace", "Tab", "Escape", "Left", "Right", "Up", "Down"}:
+                    raise ValueError("Unsupported keyboard key.")
+                repeat = message.get("repeat", 1)
+                if type(repeat) is not int or not 1 <= repeat <= 1024:
+                    raise ValueError("Invalid key repeat.")
+                self.on_remote_input("key", key=key, repeat=repeat)
+            else:
+                raise ValueError("Unsupported remote input action.")
+            return {"kind": "remote.input.accept"}
         if kind == "file.begin":
             if transfer:
                 raise ValueError("A file transfer is already in progress.")

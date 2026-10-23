@@ -18,6 +18,7 @@ Link to Linux is an Android companion and GTK desktop app for sharing selected p
 - Opt in to notification forwarding and text clipboard sharing.
 
 Some features require Android permissions and an active connection. Media controls require Android notification access and a media app that exposes an active playback session.
+Remote input lets an Android phone act as a touchpad and live text keyboard after you enable it on the desktop. File transfers show progress on Android, with human-readable file sizes. On Wayland, remote input requires `ydotool`, its user service, and distribution-specific `/dev/uinput` access.
 
 ## Downloads
 

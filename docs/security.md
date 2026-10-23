@@ -18,6 +18,7 @@
 - Photo browsing uses Android media permissions.
 - Notification forwarding and media-session access require Android Notification access. Forwarding notification content is separately opt-in in the app.
 - Clipboard sharing is opt-in on both devices.
+- Remote input is disabled by default and must be enabled on the desktop. The server validates each action and restricts keys and text length before calling the local input tool. On Wayland, ydotool requires a daemon with access to `/dev/uinput`; granting that access can permit system-wide input injection, so use the distribution's documented setup and never run Link to Linux as root.
 - File transfers are limited to 256 MB and verify the received content with SHA-256 before completing.
 
 Review Android permissions before enabling the related feature. Only pair devices on networks you trust.

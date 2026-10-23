@@ -6,6 +6,7 @@ from linktolinux.security.crypto import DeviceIdentity, create_pairing_challenge
 from linktolinux.security.pairing import PairingSession, create_pairing_session, validate_pairing_session
 from linktolinux.services.clipboard import ClipboardSyncService
 from linktolinux.services.notifications import NotificationSyncService
+from linktolinux.services.remote_input import RemoteInputController
 from linktolinux.storage.state import DesktopSettings
 from linktolinux.transports.connection import ConnectionManager, TransportType
 from linktolinux.transports.discovery import LocalDiscoveryService
@@ -21,6 +22,7 @@ class LinkToLinuxApplication:
         self.connection_manager = ConnectionManager()
         self.notification_service = NotificationSyncService()
         self.clipboard_service = ClipboardSyncService()
+        self.remote_input = RemoteInputController()
         if self.settings.notifications_enabled:
             self.notification_service.enable()
         if self.settings.clipboard_enabled:
@@ -36,6 +38,9 @@ class LinkToLinuxApplication:
             on_file=self._record_received_file,
             on_clipboard=self._receive_clipboard_text,
             clipboard_enabled=lambda: self.clipboard_service.enabled,
+            remote_input_available=lambda: self.remote_input.available,
+            remote_input_enabled=lambda: self.settings.remote_input_enabled and self.remote_input.available,
+            on_remote_input=self.remote_input.perform,
             download_directory=lambda: self.settings.download_directory,
         )
         self.settings.paired_devices.update(self.pairing_server.trusted_devices)
@@ -58,6 +63,10 @@ class LinkToLinuxApplication:
         self.settings.clipboard_enabled = enabled
         self.settings.save()
         (self.clipboard_service.enable if enabled else self.clipboard_service.disable)()
+
+    def set_remote_input_enabled(self, enabled: bool) -> None:
+        self.settings.remote_input_enabled = bool(enabled and self.remote_input.available)
+        self.settings.save()
 
     def set_download_directory(self, directory: str) -> None:
         self.settings.download_directory = directory

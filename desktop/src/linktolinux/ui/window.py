@@ -147,6 +147,7 @@ class LinkToLinuxWindow:
             ("photos", "Photos", "image-x-generic-symbolic"),
             ("notifications", "Notifications", "preferences-system-notifications-symbolic"),
             ("clipboard", "Clipboard", "edit-copy-symbolic"),
+            ("remote", "Remote input", "input-mouse-symbolic"),
             ("settings", "Settings", "emblem-system-symbolic"),
             ("about", "About", "help-about-symbolic"),
         ):
@@ -443,6 +444,7 @@ class LinkToLinuxWindow:
             ("photos", "Photos", "image-x-generic-symbolic", self._photos_page()),
             ("notifications", "Notifications", "preferences-system-notifications-symbolic", self._notifications_page()),
             ("clipboard", "Clipboard", "edit-copy-symbolic", self._clipboard_page()),
+            ("remote", "Remote input", "input-mouse-symbolic", self._remote_input_page()),
             ("settings", "Settings", "emblem-system-symbolic", self._settings_page()),
             ("about", "About", "help-about-symbolic", self._about_page()),
         ]
@@ -1036,6 +1038,33 @@ class LinkToLinuxWindow:
                 self._clipboard_status_label.set_text("Clipboard sharing is off")
         self._update_home_status()
 
+    def _remote_input_page(self) -> Any:
+        page, _ = self._page(
+            "Remote input",
+            "Use your paired Android phone as a touchpad and keyboard for this Linux desktop.",
+        )
+        frame, content = self._card("Phone control")
+        available = self.model.remote_input.available
+        enabled = Gtk.CheckButton(label="Allow remote input from the paired phone")
+        enabled.set_active(self.model.settings.remote_input_enabled and available)
+        enabled.set_sensitive(available)
+        enabled.connect("toggled", lambda button: self.model.set_remote_input_enabled(button.get_active()))
+        content.append(enabled)
+        detail = Gtk.Label(label=self.model.remote_input.description, xalign=0, wrap=True)
+        detail.add_css_class("dim-label")
+        content.append(detail)
+        content.append(Gtk.Label(
+            label="Remote input starts disabled. Turn it on here before using the Remote page on Android. The connection is encrypted and limited to the currently paired phone.",
+            xalign=0,
+            wrap=True,
+        ))
+        recheck = Gtk.Button(label="Recheck input backend")
+        recheck.set_halign(Gtk.Align.START)
+        recheck.connect("clicked", lambda _button: self._refresh_page("remote"))
+        content.append(recheck)
+        page.append(frame)
+        return self._scroll(page)
+
     def _read_desktop_clipboard_for_phone(self) -> None:
         if self._clipboard is not None:
             self._clipboard.read_text_async(None, self._local_clipboard_ready)
@@ -1125,6 +1154,7 @@ class LinkToLinuxWindow:
             "devices": self._devices_page,
             "files": self._files_page,
             "photos": self._photos_page,
+            "remote": self._remote_input_page,
         }
         current = self.stack.get_visible_child_name()
         if name not in builders:
@@ -1132,9 +1162,21 @@ class LinkToLinuxWindow:
         child = self.stack.get_child_by_name(name)
         if child is not None:
             self.stack.remove(child)
-        title = {"home": "Home", "devices": "Devices & pairing", "files": "Files", "photos": "Photos"}[name]
+        title = {
+            "home": "Home",
+            "devices": "Devices & pairing",
+            "files": "Files",
+            "photos": "Photos",
+            "remote": "Remote input",
+        }[name]
         page = builders[name]()
         self.stack.add_titled(page, name, title)
-        self.stack.get_page(page).set_icon_name({"home": "go-home-symbolic", "devices": "phone-symbolic", "files": "folder-symbolic", "photos": "image-x-generic-symbolic"}[name])
+        self.stack.get_page(page).set_icon_name({
+            "home": "go-home-symbolic",
+            "devices": "phone-symbolic",
+            "files": "folder-symbolic",
+            "photos": "image-x-generic-symbolic",
+            "remote": "input-mouse-symbolic",
+        }[name])
         if current == name:
             self.stack.set_visible_child_name(name)

@@ -13,6 +13,7 @@ class DesktopSettings:
     clipboard_enabled: bool = False
     paired_devices: set[str] = field(default_factory=set)
     auto_load_phone_photos: bool = False
+    remote_input_enabled: bool = False
 
     @staticmethod
     def path() -> Path:
@@ -29,6 +30,7 @@ class DesktopSettings:
                 notifications_enabled=data.get("notifications_enabled") is True,
                 clipboard_enabled=data.get("clipboard_enabled") is True,
                 auto_load_phone_photos=data.get("auto_load_phone_photos") is True,
+                remote_input_enabled=data.get("remote_input_enabled") is True,
             )
         except (OSError, ValueError, TypeError):
             return cls()
@@ -42,5 +44,6 @@ class DesktopSettings:
             "notifications_enabled": self.notifications_enabled,
             "clipboard_enabled": self.clipboard_enabled,
             "auto_load_phone_photos": self.auto_load_phone_photos,
+            "remote_input_enabled": self.remote_input_enabled,
         }, indent=2), encoding="utf-8")
         temporary.replace(path)

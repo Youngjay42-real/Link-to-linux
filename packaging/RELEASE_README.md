@@ -22,18 +22,19 @@ Link to Linux is an independent phone companion for Linux, inspired by the conve
 
 ## Releases
 
-### 1.0.0 · Current release
+### 1.1.0 · Current release
 
-Adds Android media playback controls to the desktop and updates the Android icon set. Saved connections, photo refresh, and media permission reporting have also been improved. See the [1.0.0 changelog](./CHANGELOG.md).
+Adds live file-transfer progress on Android, fixes file-size labels, and improves remote input responsiveness with live text entry. The Remote input shortcut is now available in the Android bottom navigation. See the [1.1.0 changelog](./CHANGELOG.md).
 
 Visit [GitHub Releases](https://github.com/Youngjay42-real/Link-to-linux/releases) for downloads and release history. To get notified when an update is published, choose **Watch → Custom → Releases** on the repository page.
 
 | Download | Package |
 | --- | --- |
 | [Android APK](https://github.com/Youngjay42-real/Link-to-linux/releases/latest/download/LinkToLinux-Android.apk) | Android |
-| [Debian/Ubuntu](https://github.com/Youngjay42-real/Link-to-linux/releases/latest/download/linktolinux_1.0.0_all.deb) | `.deb` |
-| [Fedora](https://github.com/Youngjay42-real/Link-to-linux/releases/latest/download/linktolinux-1.0.0-1.noarch.rpm) | `.rpm` |
-| [Portable Linux](https://github.com/Youngjay42-real/Link-to-linux/releases/latest/download/LinkToLinux-1.0.0-Linux.tar.gz) | `.tar.gz` |
+| [Debian/Ubuntu](https://github.com/Youngjay42-real/Link-to-linux/releases/latest/download/linktolinux_1.1.0_all.deb) | `.deb` |
+| [Fedora](https://github.com/Youngjay42-real/Link-to-linux/releases/latest/download/linktolinux-1.1.0-1.noarch.rpm) | `.rpm` |
+| [Portable Linux](https://github.com/Youngjay42-real/Link-to-linux/releases/latest/download/LinkToLinux-1.1.0-Linux.tar.gz) | `.tar.gz` |
+| [Source archive](https://github.com/Youngjay42-real/Link-to-linux/releases/latest/download/LinkToLinux-1.1.0-source.tar.gz) | `.tar.gz` |
 
 Media controls require Android notification access, an active media session, and an active paired connection. Other features may require additional Android permissions.
 
@@ -42,7 +43,7 @@ Media controls require Android notification access, an active media session, and
 On Debian or Ubuntu, open the `.deb` in the system software installer. On Fedora, open the `.rpm` or run:
 
 ```bash
-sudo dnf install ./linktolinux-1.0.0-1.noarch.rpm
+sudo dnf install ./linktolinux-1.1.0-1.noarch.rpm
 ```
 
 For other Linux distributions, extract the portable archive and run `usr/bin/linktolinux`. GTK 4, libadwaita, Python 3.11+, PyGObject, Segno, and OpenSSL are required.
