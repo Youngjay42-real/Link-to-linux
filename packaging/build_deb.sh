@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$ROOT/dist"
-VERSION="${VERSION:-1.1.0}"
+VERSION="${VERSION:-1.1.1}"
 PACKAGE="linktolinux"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT

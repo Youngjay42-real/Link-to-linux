@@ -4,7 +4,7 @@ This package contains the Ubuntu desktop client for the Link to Linux project.
 
 ## Launch from the applications menu
 
-For a friend-friendly install, build `dist/linktolinux_1.1.0_all.deb` with
+For a friend-friendly install, build `dist/linktolinux_1.1.1_all.deb` with
 `packaging/build_deb.sh`, send them the `.deb`, and have them double-click it in
 Ubuntu Software to install. Dependencies and the applications-menu launcher
 are included in the package metadata.

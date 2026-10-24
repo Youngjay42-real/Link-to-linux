@@ -93,11 +93,22 @@ class RemoteInputController:
             command = ([self.backend, "click", "--clearmodifiers", self._BUTTONS[button][0]]
                        if self.backend == "xdotool" else [self.backend, "click", self._BUTTONS[button][1]])
         elif action == "scroll":
+            dx = max(-12, min(12, dx))
             dy = max(-12, min(12, dy))
-            if dy == 0:
+            if dx == 0 and dy == 0:
                 return
-            command = ([self.backend, "click", "--repeat", str(abs(dy)), "--delay", "0", "4" if dy > 0 else "5"]
-                       if self.backend == "xdotool" else [self.backend, "mousemove", "--wheel", "-x", "0", "-y", str(dy)])
+            if self.backend == "xdotool":
+                command = [self.backend]
+                if dy:
+                    command.extend([
+                        "click", "--repeat", str(abs(dy)), "--delay", "0", "4" if dy > 0 else "5",
+                    ])
+                if dx:
+                    command.extend([
+                        "click", "--repeat", str(abs(dx)), "--delay", "0", "7" if dx > 0 else "6",
+                    ])
+            else:
+                command = [self.backend, "mousemove", "--wheel", "-x", str(dx), "-y", str(dy)]
         elif action == "type":
             if not text or len(text) > 1024 or any(ord(char) < 32 and char not in "\n\t" for char in text):
                 raise ValueError("Text input must contain 1–1024 printable characters.")

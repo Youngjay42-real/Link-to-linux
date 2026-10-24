@@ -678,10 +678,13 @@ class DesktopPairingServer:
                     raise ValueError("Invalid mouse button.")
                 self.on_remote_input("click", button=button)
             elif action == "scroll":
-                dy = message.get("dy")
-                if type(dy) is not int or abs(dy) > 20:
+                dx, dy = message.get("dx", 0), message.get("dy", 0)
+                if (
+                    type(dx) is not int or type(dy) is not int
+                    or abs(dx) > 20 or abs(dy) > 20
+                ):
                     raise ValueError("Invalid scroll distance.")
-                self.on_remote_input("scroll", dy=dy)
+                self.on_remote_input("scroll", dx=dx, dy=dy)
             elif action == "type":
                 text = message.get("text")
                 if not isinstance(text, str) or not text or len(text) > 1024:

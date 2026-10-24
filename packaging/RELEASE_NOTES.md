@@ -1,10 +1,13 @@
-# Link to Linux 1.1.0
+# Link to Linux 1.1.1
 
 ## Changes
 
 - Show file transfer progress on Android while sending files or receiving desktop offers.
 - Fix Android file-size labels so small files display in bytes/KB/MB instead of being mislabeled as GB.
 - Improve remote input responsiveness and support live text entry.
+- Add one-finger touchpad movement and click, two-finger vertical and horizontal scrolling, and two-finger tap for right-click.
+- Add an optional full-screen remote mode with an expanded touchpad and easy exit controls.
+- Add horizontal scroll support to the desktop input backends.
 - Add Remote input to the Android bottom navigation.
 - Improve Wayland ydotool daemon detection and setup guidance.
 - Added track details and playback controls for active Android media sessions on the desktop.

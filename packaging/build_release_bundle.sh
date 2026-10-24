@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="${VERSION:-1.1.0}"
+VERSION="${VERSION:-1.1.1}"
 APK="${ANDROID_APK:-$ROOT/android/app/build/outputs/apk/release/app-release.apk}"
 
 [[ -f "$APK" ]] || { echo "Release APK not found: $APK" >&2; exit 1; }
@@ -12,7 +12,7 @@ VERSION="$VERSION" "$ROOT/packaging/build_deb.sh"
 VERSION="$VERSION" "$ROOT/packaging/build_rpm.sh"
 VERSION="$VERSION" "$ROOT/packaging/build_portable_tarball.sh"
 
-RELEASE="$ROOT/dist/release-assets"
+RELEASE="$ROOT/dist/release-assets-${VERSION}"
 mkdir -p "$RELEASE/assets"
 rm -f "$RELEASE/LinkToLinux-Android.apk" \
     "$RELEASE/LinkToLinux-0.1.0-Android.apk" \
@@ -26,6 +26,7 @@ rm -f "$RELEASE/LinkToLinux-Android.apk" \
     "$RELEASE/LinkToLinux-${VERSION}-source.tar.gz" \
     "$RELEASE/README.md" \
     "$RELEASE/CHANGELOG.md"
+install -m 0644 "$APK" "$ROOT/dist/linktolinux-android.apk"
 install -m 0644 "$APK" "$RELEASE/LinkToLinux-Android.apk"
 install -m 0644 "$ROOT/dist/linktolinux_${VERSION}_all.deb" "$RELEASE/"
 install -m 0644 "$ROOT/dist/linktolinux-${VERSION}-1.noarch.rpm" "$RELEASE/"
@@ -38,4 +39,22 @@ rm -rf "$RELEASE/screenshots"
 mkdir -p "$RELEASE/screenshots"
 install -m 0644 "$ROOT/packaging/screenshots/desktop-home.png" "$RELEASE/screenshots/desktop-home.png"
 install -m 0644 "$ROOT/packaging/screenshots/android-home.png" "$RELEASE/screenshots/android-home.png"
+(
+    cd "$ROOT/dist"
+    sha256sum \
+        linktolinux-android.apk \
+        "linktolinux_${VERSION}_all.deb" \
+        "linktolinux-${VERSION}-1.noarch.rpm" \
+        "LinkToLinux-${VERSION}-Linux.tar.gz" \
+        "LinkToLinux-${VERSION}-source.tar.gz"
+) > "$ROOT/dist/SHA256SUMS-${VERSION}.txt"
+(
+    cd "$RELEASE"
+    sha256sum \
+        LinkToLinux-Android.apk \
+        "linktolinux_${VERSION}_all.deb" \
+        "linktolinux-${VERSION}-1.noarch.rpm" \
+        "LinkToLinux-${VERSION}-Linux.tar.gz" \
+        "LinkToLinux-${VERSION}-source.tar.gz"
+) > "$RELEASE/SHA256SUMS-${VERSION}.txt"
 echo "Binary-only release bundle prepared at $RELEASE"

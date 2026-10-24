@@ -29,11 +29,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -81,6 +82,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.Image
@@ -203,6 +205,7 @@ fun LinkToLinuxApp(darkMode: Boolean, pairingLink: String?, onDarkModeChanged: (
         }
     }
     var page by remember { mutableStateOf("Home") }
+    var fullRemoteMode by remember { mutableStateOf(false) }
     var host by remember { mutableStateOf(preferences.getString("desktop_host", "") ?: "") }
     var port by remember { mutableStateOf(preferences.getString("desktop_port", "44888") ?: "44888") }
     var code by remember { mutableStateOf("") }
@@ -245,7 +248,9 @@ fun LinkToLinuxApp(darkMode: Boolean, pairingLink: String?, onDarkModeChanged: (
         activity?.lifecycle?.addObserver(observer)
         onDispose { activity?.lifecycle?.removeObserver(observer) }
     }
-    BackHandler(enabled = page != "Home") { page = "Home" }
+    BackHandler(enabled = page != "Home" || fullRemoteMode) {
+        if (fullRemoteMode) fullRemoteMode = false else page = "Home"
+    }
 
     LaunchedEffect(liveSession) {
         val session = liveSession ?: return@LaunchedEffect
@@ -399,8 +404,10 @@ fun LinkToLinuxApp(darkMode: Boolean, pairingLink: String?, onDarkModeChanged: (
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val destinations = listOf("Home", "Devices", "Remote", "Files", "Photos", "Notifications", "Clipboard", "Settings", "About")
     val navigation = listOf("Home", "Devices", "Remote", "Files")
+    val fullRemoteModeActive = page == "Remote" && fullRemoteMode
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = !fullRemoteModeActive,
         drawerContent = {
             ModalDrawerSheet {
                 Row(
@@ -434,32 +441,38 @@ fun LinkToLinuxApp(darkMode: Boolean, pairingLink: String?, onDarkModeChanged: (
     ) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(if (page == "Devices") "Devices & pairing" else page) },
-                navigationIcon = {
-                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                        Icon(Icons.Filled.Menu, contentDescription = "Open navigation")
-                    }
-                },
-            )
+            if (!fullRemoteModeActive) {
+                TopAppBar(
+                    title = { Text(if (page == "Devices") "Devices & pairing" else page) },
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Filled.Menu, contentDescription = "Open navigation")
+                        }
+                    },
+                )
+            }
         },
         bottomBar = {
-            NavigationBar {
-                navigation.forEach { destination ->
-                    NavigationBarItem(
-                        selected = page == destination,
-                        onClick = { page = destination },
-                        icon = { DestinationIcon(destination) },
-                        label = { Text(destination) },
-                    )
+            if (!fullRemoteModeActive) {
+                NavigationBar {
+                    navigation.forEach { destination ->
+                        NavigationBarItem(
+                            selected = page == destination,
+                            onClick = { page = destination },
+                            icon = { DestinationIcon(destination) },
+                            label = { Text(destination) },
+                        )
+                    }
                 }
             }
         },
     ) { insets ->
         Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                .padding(insets).padding(horizontal = 18.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.fillMaxSize()
+                .then(if (fullRemoteModeActive) Modifier else Modifier.verticalScroll(rememberScrollState()))
+                .padding(insets)
+                .padding(if (fullRemoteModeActive) 8.dp else 18.dp),
+            verticalArrangement = Arrangement.spacedBy(if (fullRemoteModeActive) 8.dp else 14.dp),
         ) {
             when (page) {
                 "Home" -> HomePage(desktopName, connected, transferMessage, desktopStatus, onPair = { page = "Devices" }, onNavigate = { page = it })
@@ -604,6 +617,8 @@ fun LinkToLinuxApp(darkMode: Boolean, pairingLink: String?, onDarkModeChanged: (
                     available = desktopStatus?.remoteInputAvailable == true,
                     enabled = desktopStatus?.remoteInputEnabled == true,
                     statusMessage = transferMessage,
+                    fullScreen = fullRemoteModeActive,
+                    onToggleFullScreen = { fullRemoteMode = !fullRemoteMode },
                     onInput = { action, dx, dy, button, text, key, repeat ->
                         if (liveSession == null) {
                             transferMessage = "Connect to the paired desktop to use remote input."
@@ -708,17 +723,34 @@ private fun PageHeader(title: String, subtitle: String) {
 }
 
 @Composable
-private fun RemoteInputPage(
+private fun ColumnScope.RemoteInputPage(
     connected: Boolean,
     available: Boolean,
     enabled: Boolean,
     statusMessage: String,
+    fullScreen: Boolean,
+    onToggleFullScreen: () -> Unit,
     onInput: (String, Int, Int, Int, String, String, Int) -> Unit,
 ) {
     var text by remember { mutableStateOf("") }
     var editMessage by remember { mutableStateOf("") }
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
     val lastMoveAt = remember { longArrayOf(0L) }
-    PageHeader("Remote input", "Use this phone as a touchpad and keyboard for your Linux desktop.")
+    if (fullScreen) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Remote mode", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            TextButton(onClick = onToggleFullScreen) { Text("Exit full screen") }
+        }
+    } else {
+        PageHeader("Remote input", "Use this phone as a touchpad and keyboard for your Linux desktop.")
+        OutlinedButton(onClick = onToggleFullScreen, modifier = Modifier.fillMaxWidth()) {
+            Text("Enter full-screen remote mode")
+        }
+    }
     if (statusMessage.isNotBlank()) {
         Text(statusMessage, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -737,32 +769,98 @@ private fun RemoteInputPage(
         SectionCard("Remote input is off", "On the desktop, open Remote input and enable ‘Allow remote input from the paired phone’.")
         return
     }
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth()
+            .then(if (fullScreen) Modifier.weight(1f) else Modifier.height(280.dp)),
+    ) {
         Box(
-            modifier = Modifier.fillMaxWidth().height(280.dp)
+            modifier = Modifier.fillMaxSize()
                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                .pointerInput(Unit) {
-                    detectTapGestures(onTap = { onInput("click", 0, 0, 1, "", "", 1) })
-                }
-                .pointerInput(Unit) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        val now = android.os.SystemClock.uptimeMillis()
-                        if (now - lastMoveAt[0] >= 32) {
-                            lastMoveAt[0] = now
-                            onInput("move", (dragAmount.x * 2.0f).toInt(), (dragAmount.y * 2.0f).toInt(), 1, "", "", 1)
+                .pointerInput(onInput, density) {
+                    awaitEachGesture {
+                        val firstDown = awaitFirstDown(requireUnconsumed = false)
+                        var maxPointers = 1
+                        var dragging = false
+                        var oneFingerDelta = Offset.Zero
+                        var scrollRemainderX = 0f
+                        var scrollRemainderY = 0f
+                        var previousPositions = mapOf(firstDown.id to firstDown.position)
+                        val touchSlop = viewConfiguration.touchSlop
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val pressed = event.changes.filter { it.pressed }
+                            maxPointers = maxOf(maxPointers, pressed.size)
+                            if (pressed.isEmpty()) break
+                            if (maxPointers == 1 && pressed.size == 1) {
+                                val change = pressed.single()
+                                val previous = previousPositions[change.id]
+                                if (previous != null) {
+                                    val delta = change.position - previous
+                                    oneFingerDelta += delta
+                                    if (dragging || oneFingerDelta.getDistance() >= touchSlop) {
+                                        dragging = true
+                                        val now = android.os.SystemClock.uptimeMillis()
+                                        if (now - lastMoveAt[0] >= 32L) {
+                                            onInput(
+                                                "move",
+                                                (oneFingerDelta.x * 2f).toInt(),
+                                                (oneFingerDelta.y * 2f).toInt(),
+                                                1, "", "", 1,
+                                            )
+                                            oneFingerDelta = Offset.Zero
+                                            lastMoveAt[0] = now
+                                        }
+                                        change.consume()
+                                    }
+                                }
+                            } else if (pressed.size >= 2) {
+                                val deltas = pressed.mapNotNull { change ->
+                                    previousPositions[change.id]?.let { change.position - it }
+                                }
+                                if (deltas.isNotEmpty()) {
+                                    val averageDelta = deltas.reduce(Offset::plus) / deltas.size.toFloat()
+                                    scrollRemainderX += averageDelta.x / (32f * density)
+                                    scrollRemainderY -= averageDelta.y / (32f * density)
+                                    val horizontal = scrollRemainderX.toInt().coerceIn(-12, 12)
+                                    val vertical = scrollRemainderY.toInt().coerceIn(-12, 12)
+                                    if (horizontal != 0 || vertical != 0) {
+                                        onInput("scroll", horizontal, vertical, 1, "", "", 1)
+                                        scrollRemainderX -= horizontal
+                                        scrollRemainderY -= vertical
+                                    }
+                                    pressed.forEach { it.consume() }
+                                }
+                            }
+                            previousPositions = pressed.associate { it.id to it.position }
+                        }
+                        if (dragging && (oneFingerDelta.x != 0f || oneFingerDelta.y != 0f)) {
+                            onInput(
+                                "move",
+                                (oneFingerDelta.x * 2f).toInt(),
+                                (oneFingerDelta.y * 2f).toInt(),
+                                1, "", "", 1,
+                            )
+                        }
+                        if (!dragging) {
+                            when (maxPointers) {
+                                1 -> onInput("click", 0, 0, 1, "", "", 1)
+                                2 -> onInput("click", 0, 0, 3, "", "", 1)
+                            }
                         }
                     }
                 },
             contentAlignment = Alignment.Center,
         ) {
-            Text("Touch and drag to move · tap to click", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "1 finger: move · tap: click\n2 fingers: scroll · tap: right-click",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
         }
     }
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = { onInput("click", 0, 0, 1, "", "", 1) }, modifier = Modifier.weight(1f)) { Text("Left click") }
         OutlinedButton(onClick = { onInput("click", 0, 0, 3, "", "", 1) }, modifier = Modifier.weight(1f)) { Text("Right click") }
-        OutlinedButton(onClick = { onInput("scroll", 0, 3, 1, "", "", 1) }, modifier = Modifier.weight(1f)) { Text("Scroll ↑") }
-        OutlinedButton(onClick = { onInput("scroll", 0, -3, 1, "", "", 1) }, modifier = Modifier.weight(1f)) { Text("Scroll ↓") }
     }
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
         OutlinedButton(onClick = { onInput("key", 0, 0, 1, "", "Backspace", 1) }, modifier = Modifier.weight(1f)) { Text("⌫") }
@@ -802,7 +900,9 @@ private fun RemoteInputPage(
             }
         }
     }
-    Text("Text and pointer input are sent immediately over the encrypted paired connection. You can disable remote input from the desktop at any time.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (!fullScreen) {
+        Text("Pointer, scrolling, and keyboard input are sent over the encrypted paired connection. Disable remote input from the desktop at any time.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
 @Composable
@@ -1094,7 +1194,7 @@ private fun MorePage(onNavigate: (String) -> Unit) {
 @Composable
 private fun AboutPage(onOpenLink: (String) -> Unit) {
     PageHeader("About Link to Linux", "A desktop companion for the Android features you choose to connect.")
-    SectionCard("Link to Linux · 1.1.0", "Pair your phone with a Linux desktop to share files and photos, control media, use remote input, receive device status, and opt in to notifications and clipboard sharing.")
+    SectionCard("Link to Linux · 1.1.1", "Pair your phone with a Linux desktop to share files and photos, control media, use touchpad-style remote input, receive device status, and opt in to notifications and clipboard sharing.")
     SectionCard("Built by Young Jay", "An independent project from YoungTechsperts. YoungTechsperts builds practical software and digital projects.")
     Button(onClick = { onOpenLink("https://github.com/Youngjay42-real") }, modifier = Modifier.fillMaxWidth()) { Text("GitHub profile") }
     Button(onClick = { onOpenLink("https://youngai.site") }, modifier = Modifier.fillMaxWidth()) { Text("Visit youngai.site") }
@@ -1311,7 +1411,7 @@ internal class LiveLinkSession(private val socket: SSLSocket) {
         when (action) {
             "move" -> message.put("dx", dx).put("dy", dy)
             "click" -> message.put("button", button)
-            "scroll" -> message.put("dy", dy)
+            "scroll" -> message.put("dx", dx).put("dy", dy)
             "type" -> message.put("text", text)
             "key" -> message.put("key", key).put("repeat", repeat)
             else -> throw IllegalArgumentException("Unsupported remote input action.")

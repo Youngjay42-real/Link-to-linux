@@ -92,3 +92,42 @@ def test_ydotool_type_uses_low_delay_and_sufficient_timeout(monkeypatch) -> None
         "ydotool", "type", "--key-delay=1", "--key-hold=1", "--", text
     ]
     assert options["timeout"] > 5
+
+
+def test_ydotool_scroll_supports_two_axes(monkeypatch) -> None:
+    _install_ydotool(monkeypatch, "/not-used")
+    monkeypatch.setattr(RemoteInputController, "available", property(lambda _self: True))
+    commands = []
+    monkeypatch.setattr(
+        "linktolinux.services.remote_input.subprocess.run",
+        lambda command, **kwargs: commands.append(command) or SimpleNamespace(
+            returncode=0, stderr=""
+        ),
+    )
+
+    RemoteInputController().perform("scroll", dx=-2, dy=3)
+
+    assert commands[0] == ["ydotool", "mousemove", "--wheel", "-x", "-2", "-y", "3"]
+
+
+def test_xdotool_scroll_supports_horizontal_and_vertical(monkeypatch) -> None:
+    monkeypatch.setenv("XDG_SESSION_TYPE", "x11")
+    monkeypatch.setattr(
+        "linktolinux.services.remote_input.shutil.which",
+        lambda command: f"/usr/bin/{command}" if command == "xdotool" else None,
+    )
+    monkeypatch.setattr(RemoteInputController, "available", property(lambda _self: True))
+    commands = []
+    monkeypatch.setattr(
+        "linktolinux.services.remote_input.subprocess.run",
+        lambda command, **kwargs: commands.append(command) or SimpleNamespace(
+            returncode=0, stderr=""
+        ),
+    )
+
+    RemoteInputController().perform("scroll", dx=2, dy=-1)
+
+    assert commands[0] == [
+        "xdotool", "click", "--repeat", "1", "--delay", "0", "5",
+        "click", "--repeat", "2", "--delay", "0", "7",
+    ]
