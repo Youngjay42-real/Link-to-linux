@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.NotificationManager
 import android.Manifest
 import android.content.Context
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.ContentResolver
 import android.content.BroadcastReceiver
@@ -19,6 +20,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.provider.MediaStore
 import android.util.Size
+import android.util.Log
 import android.os.Environment
 import android.os.Build
 import android.os.Bundle
@@ -45,6 +47,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -109,6 +112,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.channels.Channel
 import org.json.JSONObject
@@ -128,8 +132,11 @@ import java.util.UUID
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.X509TrustManager
+import com.example.linktolinux.BuildConfig
 
 private const val PREFS_NAME = "link_to_linux_pairing"
+private const val UPDATE_CHECK_INTERVAL_HOURS = 24
+private const val PREF_LAST_NOTIFIED_VERSION = "last_notified_update_version"
 
 private data class FileTransferProgress(
     val filename: String,
@@ -235,6 +242,31 @@ fun LinkToLinuxApp(darkMode: Boolean, pairingLink: String?, onDarkModeChanged: (
     var phonePhotoAccess by remember { mutableStateOf(hasPhonePhotoAccess(context)) }
     var clipboardSync by remember { mutableStateOf(preferences.getBoolean("clipboard_sync", false)) }
     var downloadFolder by remember { mutableStateOf(preferences.getString("download_folder", "Not selected") ?: "Not selected") }
+    var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
+    var lastNotifiedUpdateVersion by remember {
+        mutableStateOf(preferences.getString(PREF_LAST_NOTIFIED_VERSION, "").orEmpty())
+    }
+    val acknowledgeUpdate = {
+        updateInfo?.let { info ->
+            preferences.edit().putString(PREF_LAST_NOTIFIED_VERSION, info.version).apply()
+            lastNotifiedUpdateVersion = info.version
+        }
+        updateInfo = null
+    }
+    val openUpdateDownload: () -> Unit = {
+        updateInfo?.let { info ->
+            try {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.url)))
+                acknowledgeUpdate()
+            } catch (error: ActivityNotFoundException) {
+                Log.w("LinkToLinuxUpdates", "No app is available to open the update link.")
+                android.widget.Toast.makeText(context, "No browser is available to open the update.", android.widget.Toast.LENGTH_LONG).show()
+            } catch (error: SecurityException) {
+                Log.w("LinkToLinuxUpdates", "Platform security blocked the update link.")
+                android.widget.Toast.makeText(context, "Android could not open the update link.", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
     val photoAccessLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         phonePhotoAccess = hasPhonePhotoAccess(context)
     }
@@ -250,6 +282,21 @@ fun LinkToLinuxApp(darkMode: Boolean, pairingLink: String?, onDarkModeChanged: (
     }
     BackHandler(enabled = page != "Home" || fullRemoteMode) {
         if (fullRemoteMode) fullRemoteMode = false else page = "Home"
+    }
+    LaunchedEffect(context) {
+        while (isActive) {
+            val availableUpdate = withContext(Dispatchers.IO) {
+                UpdateChecker.checkForUpdate(
+                    installedVersion = BuildConfig.VERSION_NAME,
+                    lastNotifiedVersion = lastNotifiedUpdateVersion,
+                )
+            }
+            if (availableUpdate != null) {
+                lastNotifiedUpdateVersion = availableUpdate.version
+                updateInfo = availableUpdate
+            }
+            delay(UPDATE_CHECK_INTERVAL_HOURS * 60 * 60 * 1000L)
+        }
     }
 
     LaunchedEffect(liveSession) {
@@ -475,7 +522,17 @@ fun LinkToLinuxApp(darkMode: Boolean, pairingLink: String?, onDarkModeChanged: (
             verticalArrangement = Arrangement.spacedBy(if (fullRemoteModeActive) 8.dp else 14.dp),
         ) {
             when (page) {
-                "Home" -> HomePage(desktopName, connected, transferMessage, desktopStatus, onPair = { page = "Devices" }, onNavigate = { page = it })
+                "Home" -> HomePage(
+                    desktopName = desktopName,
+                    connected = connected,
+                    transferMessage = transferMessage,
+                    desktopStatus = desktopStatus,
+                    updateInfo = updateInfo,
+                    onDismissUpdate = acknowledgeUpdate,
+                    onDownloadUpdate = openUpdateDownload,
+                    onPair = { page = "Devices" },
+                    onNavigate = { page = it }
+                )
                 "Devices" -> PairingPage(
                     host = host, onHostChange = { host = it },
                     port = port, onPortChange = { port = it },
@@ -707,7 +764,17 @@ fun LinkToLinuxApp(darkMode: Boolean, pairingLink: String?, onDarkModeChanged: (
                 "About" -> AboutPage { url ->
                     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                 }
-                else -> HomePage(desktopName, connected, transferMessage, desktopStatus, onPair = { page = "Devices" }, onNavigate = { page = it })
+                else -> HomePage(
+                    desktopName = desktopName,
+                    connected = connected,
+                    transferMessage = transferMessage,
+                    desktopStatus = desktopStatus,
+                    updateInfo = updateInfo,
+                    onDismissUpdate = acknowledgeUpdate,
+                    onDownloadUpdate = openUpdateDownload,
+                    onPair = { page = "Devices" },
+                    onNavigate = { page = it }
+                )
             }
         }
     }
@@ -926,10 +993,16 @@ private fun HomePage(
     connected: Boolean,
     transferMessage: String,
     desktopStatus: DesktopStatus?,
+    updateInfo: UpdateInfo?,
+    onDismissUpdate: () -> Unit,
+    onDownloadUpdate: () -> Unit,
     onPair: () -> Unit,
     onNavigate: (String) -> Unit,
 ) {
     PageHeader("Link to Linux", "Your phone companion for Linux.")
+    updateInfo?.let { info ->
+        UpdateBanner(info, onDismissUpdate, onDownloadUpdate)
+    }
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = if (connected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(if (connected) "● CONNECTED" else if (desktopName.isNotBlank()) "PAIRED · OFFLINE" else "NOT PAIRED", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
@@ -1651,5 +1724,56 @@ internal class LiveLinkSession(private val socket: SSLSocket) {
         val cursor = resolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)
         cursor?.use { if (it.moveToFirst()) return it.getLong(0) }
         return -1L
+    }
+}
+
+@Composable
+private fun UpdateBanner(
+    info: UpdateInfo,
+    onDismiss: () -> Unit,
+    onDownload: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Update Available: Version ${info.version}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    if (info.notes.isNotBlank()) {
+                        Text(
+                            info.notes,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                    }
+                    if (info.publishedAt.isNotBlank()) {
+                        Text(
+                            "Published ${info.publishedAt}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Later")
+                    }
+                    Button(onClick = onDownload, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
+                        Text("Download update")
+                    }
+                }
+            }
+        }
     }
 }

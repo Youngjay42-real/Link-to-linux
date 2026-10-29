@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="${VERSION:-1.1.1}"
+VERSION="${VERSION:-$(sed -n 's/^__version__ = "\([^"]*\)"$/\1/p' "$ROOT/desktop/src/linktolinux/__init__.py")}"
 APK="${ANDROID_APK:-$ROOT/android/app/build/outputs/apk/release/app-release.apk}"
 
 [[ -f "$APK" ]] || { echo "Release APK not found: $APK" >&2; exit 1; }
@@ -11,6 +11,28 @@ command -v rpmbuild >/dev/null || { echo "rpmbuild is required to build the Fedo
 VERSION="$VERSION" "$ROOT/packaging/build_deb.sh"
 VERSION="$VERSION" "$ROOT/packaging/build_rpm.sh"
 VERSION="$VERSION" "$ROOT/packaging/build_portable_tarball.sh"
+
+tar -czf "$ROOT/dist/LinkToLinux-${VERSION}-source.tar.gz" \
+    --exclude='./dist' \
+    --exclude='./.git' \
+    --exclude='*/.git' \
+    --exclude='./.venv' \
+    --exclude='./.venv-*' \
+    --exclude='./.claude' \
+    --exclude='./.pytest_cache' \
+    --exclude='*/.venv' \
+    --exclude='*/.venv-*' \
+    --exclude='*/__pycache__' \
+    --exclude='*/.pytest_cache' \
+    --exclude='*.egg-info' \
+    --exclude='./android/.gradle' \
+    --exclude='./android/.kotlin' \
+    --exclude='*/.kotlin' \
+    --exclude='./android/app/build' \
+    --exclude='./android/local.properties' \
+    --exclude='./android/signing.properties' \
+    --exclude='./android/*.jks' \
+    -C "$ROOT" .
 
 RELEASE="$ROOT/dist/release-assets-${VERSION}"
 mkdir -p "$RELEASE/assets"

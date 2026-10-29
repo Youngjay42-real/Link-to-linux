@@ -7,11 +7,16 @@ from linktolinux.security.pairing import PairingSession, create_pairing_session,
 from linktolinux.services.clipboard import ClipboardSyncService
 from linktolinux.services.notifications import NotificationSyncService
 from linktolinux.services.remote_input import RemoteInputController
+from linktolinux.services.update_checker import UpdateChecker
 from linktolinux.storage.state import DesktopSettings
 from linktolinux.transports.connection import ConnectionManager, TransportType
 from linktolinux.transports.discovery import LocalDiscoveryService
 from linktolinux.transports.pairing_server import DesktopPairingServer
 from linktolinux.ui.dashboard import DesktopDashboard
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from linktolinux.ui.window import LinkToLinuxWindow
 
 
 class LinkToLinuxApplication:
@@ -50,6 +55,8 @@ class LinkToLinuxApplication:
             self.pairing_server.start(trusted_only=True)
         self.dashboard = DesktopDashboard(self)
         self.discovery_service = LocalDiscoveryService()
+        from linktolinux import __version__
+        self.update_checker = UpdateChecker(self.settings, __version__)
 
     def _record_paired_device(self, device_id: str, _device_name: str) -> None:
         self.settings.paired_devices.add(device_id)

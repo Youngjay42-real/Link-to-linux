@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="${VERSION:-1.1.1}"
+VERSION="${VERSION:-$(sed -n 's/^__version__ = "\([^"]*\)"$/\1/p' "$ROOT/desktop/src/linktolinux/__init__.py")}"
 ARCH="${RPM_ARCH:-noarch}"
 WORK="$(mktemp -d "$ROOT/dist/.rpmbuild.XXXXXX")"
 RPM_WORK="/tmp/linktolinux-rpm-$$"
@@ -31,6 +31,7 @@ Source0:        %{name}-%{version}.tar.gz
 Requires:       python3 >= 3.11
 Requires:       python3-gobject
 Requires:       python3-segno
+Requires:       python3-packaging
 Requires:       gtk4
 Requires:       libadwaita
 Requires:       openssl

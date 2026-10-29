@@ -26,6 +26,8 @@ Download the current APK and Linux packages from [GitHub Releases](https://githu
 
 To receive notifications for future releases, open the repository on GitHub and select **Watch → Custom → Releases**.
 
+Link to Linux also checks for published stable updates at startup and periodically while running. See [the update-check documentation](docs/update-checking.md) for platform-specific download behavior, testing, and release steps.
+
 | Platform | Download |
 | --- | --- |
 | Android | [APK](https://github.com/Youngjay42-real/Link-to-linux/releases/latest/download/LinkToLinux-Android.apk) |

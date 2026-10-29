@@ -13,6 +13,7 @@ import android.media.RingtoneManager
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.util.Log
 
 class LinkSessionService : Service() {
     private var worker: Thread? = null
@@ -21,6 +22,8 @@ class LinkSessionService : Service() {
     private var phoneRinging = false
     private var mediaCommandAck = ""
     private var lastMediaCommandId = ""
+    private var lastMediaCommandAction = ""
+    private var lastMediaCommandTime = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -62,9 +65,22 @@ class LinkSessionService : Service() {
                 mediaCommandAck = ""
                 status.optJSONObject("media_command")?.let { command ->
                     val commandId = command.optString("id")
-                    if (commandId.isNotBlank() && commandId != lastMediaCommandId) {
+                    val commandAction = command.optString("action")
+                    val now = System.currentTimeMillis()
+
+                    // Check if this is a new command (not a duplicate)
+                    val isNewCommand = commandId.isNotBlank() && (commandId != lastMediaCommandId || now - lastMediaCommandTime > 5000)
+
+                    if (isNewCommand) {
+                        Log.d("LinkToLinux", "Received media command: $commandAction (id=$commandId)")
                         lastMediaCommandId = commandId
-                        PhoneMediaSessions.control(this, command.optString("action"))
+                        lastMediaCommandAction = commandAction
+                        lastMediaCommandTime = now
+                        PhoneMediaSessions.control(this, commandAction)
+                        mediaCommandAck = commandId
+                    } else if (commandId.isNotBlank() && commandId == lastMediaCommandId) {
+                        // Duplicate command, just ack it
+                        Log.d("LinkToLinux", "Duplicate media command ignored: $commandAction (id=$commandId)")
                         mediaCommandAck = commandId
                     }
                 }
@@ -88,7 +104,8 @@ class LinkSessionService : Service() {
                     sendBroadcast(update)
                 }
                 updateNotification()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.e("LinkToLinux", "Session error: ${e.message}", e)
                 val wasCurrent = ActiveLink.session === session
                 if (wasCurrent) ActiveLink.session = null
                 session.close()

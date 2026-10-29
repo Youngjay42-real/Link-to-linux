@@ -14,6 +14,7 @@ class DesktopSettings:
     paired_devices: set[str] = field(default_factory=set)
     auto_load_phone_photos: bool = False
     remote_input_enabled: bool = False
+    last_notified_update_version: str = ""
 
     @staticmethod
     def path() -> Path:
@@ -31,6 +32,11 @@ class DesktopSettings:
                 clipboard_enabled=data.get("clipboard_enabled") is True,
                 auto_load_phone_photos=data.get("auto_load_phone_photos") is True,
                 remote_input_enabled=data.get("remote_input_enabled") is True,
+                last_notified_update_version=(
+                    data.get("last_notified_update_version", "")
+                    if isinstance(data.get("last_notified_update_version", ""), str)
+                    else ""
+                ),
             )
         except (OSError, ValueError, TypeError):
             return cls()
@@ -45,5 +51,6 @@ class DesktopSettings:
             "clipboard_enabled": self.clipboard_enabled,
             "auto_load_phone_photos": self.auto_load_phone_photos,
             "remote_input_enabled": self.remote_input_enabled,
+            "last_notified_update_version": self.last_notified_update_version,
         }, indent=2), encoding="utf-8")
         temporary.replace(path)

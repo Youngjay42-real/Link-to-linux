@@ -11,6 +11,7 @@ import android.media.session.MediaSessionManager
 import android.app.NotificationManager
 import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
+import android.util.Log
 
 class PhoneNotificationListener : NotificationListenerService() {
     private val lastContent = ConcurrentHashMap<String, String>()
@@ -69,7 +70,19 @@ internal object PhoneMediaSessions {
     @Volatile private var knownSessions: List<MediaController> = emptyList()
 
     fun update(sessions: List<MediaController>) {
+        val oldSessions = knownSessions
         knownSessions = sessions
+
+        // Log session changes for debugging
+        if (oldSessions != sessions) {
+            Log.d("LinkToLinux", "Media sessions updated: count=${sessions.size}")
+            for (s in sessions) {
+                val pkg = s.packageName
+                val state = s.playbackState?.state?.let { stateToString(it) } ?: "null"
+                val title = s.metadata?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: "no title"
+                Log.d("LinkToLinux", "  Session: pkg=$pkg state=$state title=$title")
+            }
+        }
     }
 
     private fun sessions(context: Context): List<MediaController> = runCatching {
@@ -79,15 +92,27 @@ internal object PhoneMediaSessions {
     }.getOrDefault(knownSessions)
 
     fun activeController(context: Context): MediaController? = sessions(context)
-        .filter { it.playbackState?.state != PlaybackState.STATE_STOPPED }
-        .maxWithOrNull(compareBy<MediaController> {
-            when (it.playbackState?.state) {
-                PlaybackState.STATE_PLAYING -> 3
-                PlaybackState.STATE_BUFFERING -> 2
-                PlaybackState.STATE_PAUSED -> 1
-                else -> 0
+        .filter { controller ->
+            val state = controller.playbackState?.state ?: PlaybackState.STATE_NONE
+            // Filter out sessions that are not playable (STOPPED, NONE)
+            state != PlaybackState.STATE_STOPPED
+                && state != PlaybackState.STATE_NONE
+        }
+        // Prefer Spotify controllers when available and active, but don't hardcode
+        .sortedWith(
+            compareByDescending<MediaController> { it ->
+                // First priority: PLAYING state
+                when (it.playbackState?.state) {
+                    PlaybackState.STATE_PLAYING -> 3
+                    PlaybackState.STATE_BUFFERING -> 2
+                    PlaybackState.STATE_PAUSED -> 1
+                    else -> 0
+                }
             }
-        }.thenBy { it.playbackState?.lastPositionUpdateTime ?: 0L })
+            .thenByDescending { it.packageName == "com.spotify.music" || it.packageName == "com.spotify.music.test" }
+            .thenByDescending { it.playbackState?.lastPositionUpdateTime ?: 0L }
+        )
+        .firstOrNull()
 
     fun status(context: Context) = JSONObject().apply {
         val listenerComponent = ComponentName(context, PhoneNotificationListener::class.java)
@@ -121,6 +146,9 @@ internal object PhoneMediaSessions {
 
     fun control(context: Context, action: String): Boolean {
         val controller = activeController(context) ?: return false
+        val pkg = controller.packageName
+        val state = controller.playbackState?.state?.let { stateToString(it) } ?: "unknown"
+        Log.d("LinkToLinux", "Executing media action: $action on $pkg (state=$state)")
         val controls = controller.transportControls
         return runCatching {
             when (action) {
@@ -131,5 +159,21 @@ internal object PhoneMediaSessions {
             }
             true
         }.getOrDefault(false)
+    }
+
+    private fun stateToString(state: Int): String {
+        return when (state) {
+            PlaybackState.STATE_NONE -> "NONE"
+            PlaybackState.STATE_STOPPED -> "STOPPED"
+            PlaybackState.STATE_PAUSED -> "PAUSED"
+            PlaybackState.STATE_PLAYING -> "PLAYING"
+            PlaybackState.STATE_BUFFERING -> "BUFFERING"
+            PlaybackState.STATE_FAST_FORWARDING -> "FAST_FORWARDING"
+            PlaybackState.STATE_REWINDING -> "REWINDING"
+            PlaybackState.STATE_SKIPPING_TO_NEXT -> "SKIPPING_TO_NEXT"
+            PlaybackState.STATE_SKIPPING_TO_PREVIOUS -> "SKIPPING_TO_PREVIOUS"
+            11 -> "SEEKING" // PlaybackState.STATE_SEEKING (API 29+)
+            else -> "UNKNOWN($state)"
+        }
     }
 }

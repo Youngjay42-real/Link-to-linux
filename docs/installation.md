@@ -8,7 +8,7 @@ On Ubuntu or Debian, install the GTK4 and libadwaita bindings, then install the 
 
 ```bash
 sudo apt update
-sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 python3-venv python3-dev
+sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 python3-packaging python3-venv python3-dev
 python3 -m venv --system-site-packages desktop/.venv
 source desktop/.venv/bin/activate
 python -m pip install --upgrade pip
@@ -32,4 +32,4 @@ Install Android Studio with Android SDK Platform 35 and open the `android/` dire
 
 ## Linux packages
 
-Run `packaging/build_deb.sh`, `packaging/build_rpm.sh`, or `packaging/build_portable_tarball.sh` to build the matching package. `packaging/build_release_bundle.sh` assembles all release artifacts and expects a signed Android release APK and `rpmbuild` to be available.
+Run `packaging/build_deb.sh`, `packaging/build_rpm.sh`, or `packaging/build_portable_tarball.sh` to build the matching package. `packaging/build_release_bundle.sh` assembles all release artifacts and expects a signed Android release APK and `rpmbuild` to be available. The portable archive needs GTK 4, libadwaita, Python 3.11+, PyGObject, Segno, Python Packaging, and OpenSSL from the Linux distribution.

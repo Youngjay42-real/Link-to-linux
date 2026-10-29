@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$ROOT/dist"
-VERSION="${VERSION:-1.1.1}"
+VERSION="${VERSION:-$(sed -n 's/^__version__ = "\([^"]*\)"$/\1/p' "$ROOT/desktop/src/linktolinux/__init__.py")}"
 PACKAGE="linktolinux"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
@@ -49,7 +49,7 @@ Section: net
 Priority: optional
 Architecture: all
 Maintainer: YoungTechsperts
-Depends: python3 (>= 3.11), python3-gi, python3-segno, gir1.2-gtk-4.0, gir1.2-adw-1, openssl
+Depends: python3 (>= 3.11), python3-gi, python3-segno, python3-packaging, gir1.2-gtk-4.0, gir1.2-adw-1, openssl
 Description: Link to Linux desktop companion
  Securely connect an Android phone and Linux desktop over a local network.
  Includes phone pairing, file transfer, photo browsing, status, notifications,

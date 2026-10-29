@@ -1,22 +1,14 @@
-# Link to Linux 1.1.1
+# Link to Linux 1.1.2
 
-## Changes
+## What's new
 
-- Show file transfer progress on Android while sending files or receiving desktop offers.
-- Fix Android file-size labels so small files display in bytes/KB/MB instead of being mislabeled as GB.
-- Improve remote input responsiveness and support live text entry.
-- Add one-finger touchpad movement and click, two-finger vertical and horizontal scrolling, and two-finger tap for right-click.
-- Add an optional full-screen remote mode with an expanded touchpad and easy exit controls.
-- Add horizontal scroll support to the desktop input backends.
-- Add Remote input to the Android bottom navigation.
-- Improve Wayland ydotool daemon detection and setup guidance.
-- Added track details and playback controls for active Android media sessions on the desktop.
-- Added media permission status and refreshed session detection.
-- Updated the Android launcher and navigation icons to match the desktop branding.
-- Reconnect to a saved desktop without pairing again when the desktop app is running.
-- Refresh recent phone photos after reconnection and retain loaded thumbnails while offline.
-- Save desktop notification and clipboard preferences and the download folder.
+- Added automatic update notifications for new stable releases on Linux desktop and Android.
+- Desktop users are directed to the matching Linux package when available; Android users are directed to the APK.
+- Update checks run in the background and do not block startup when offline or when GitHub is unavailable.
+- Update notifications show the release version and notes, with options to download the update or be reminded later.
 
-Media controls require Android notification access and an active media session. Photo browsing and notification forwarding require their corresponding Android permissions.
+## Update safety
+
+Updates open the official GitHub release page or the matching release download. The app does not install or run downloaded files automatically. Draft and prerelease releases are not offered.
 
 Link to Linux is an independent project inspired by Microsoft Link to Windows. It is not affiliated with Microsoft.

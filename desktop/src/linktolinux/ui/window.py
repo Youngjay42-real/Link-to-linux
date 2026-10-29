@@ -3,7 +3,9 @@ from __future__ import annotations
 import base64
 import io
 import json
+import logging
 import time
+import webbrowser
 from urllib.parse import urlencode
 from typing import TYPE_CHECKING, Any
 
@@ -23,6 +25,8 @@ except (ImportError, ValueError):  # pragma: no cover - depends on system GTK pa
     Gtk = None
     Gdk = None
     GdkPixbuf = None
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class LinkToLinuxWindow:
@@ -71,6 +75,8 @@ class LinkToLinuxWindow:
         self._clipboard_status_label: Any = None
         self._status_refresh_source = 0
         self._photo_page_connected = self.model.pairing_server.session_connected
+        self._update_banner: Any = None
+        self._update_banner_info: dict | None = None
 
     def start(self) -> int:
         return self.application.run(None)
@@ -194,6 +200,9 @@ class LinkToLinuxWindow:
             self._clipboard = display.get_clipboard()
             self._clipboard.connect("changed", self._on_local_clipboard_changed)
 
+        # Start periodic update checks
+        self.model.update_checker.start_periodic_checks(self)
+
     def _toggle_sidebar(self, button: Any) -> None:
         self._sidebar_collapsed = not self._sidebar_collapsed
         for label in self._navigation_labels:
@@ -210,8 +219,67 @@ class LinkToLinuxWindow:
         if self._status_refresh_source:
             GLib.source_remove(self._status_refresh_source)
             self._status_refresh_source = 0
+        self.model.update_checker.stop_periodic_checks()
         self.model.pairing_server.stop()
         return False
+
+    def show_update_banner(self, info: dict) -> None:
+        """Show an update banner in the home page."""
+        version = info.get("version")
+        if (
+            self._update_banner is not None
+            or not isinstance(version, str)
+            or version == self.model.settings.last_notified_update_version
+        ):
+            return  # Already showing a banner
+
+        self._update_banner_info = info
+
+        # Create the banner
+        banner = Adw.Banner()
+        banner.set_title(f"Update Available: Version {info['version']}")
+        banner.set_revealed(True)
+        banner.add_button("Later", self._dismiss_update_banner)
+        banner.add_button("Download update", self._open_update_url)
+        banner.set_button_appearance("Download update", Adw.ResponseAppearance.SUGGESTED)
+
+        notes = info.get("notes", "").strip()
+        published_at = info.get("published_at", "")
+        summary = notes[:200] + ("..." if len(notes) > 200 else "")
+        if published_at:
+            summary = f"Published {published_at}. {summary}".strip()
+        if summary:
+            banner.set_body(summary)
+
+        # Insert banner at the top of the home page
+        if self.stack is not None:
+            home_page = self.stack.get_child_by_name("home")
+            if home_page:
+                # Find the first child (the scrolled window) and insert banner before it
+                first_child = home_page.get_first_child()
+                if first_child:
+                    home_page.insert_child_before(banner, first_child)
+                    self._update_banner = banner
+                    self.model.update_checker.mark_notified(version)
+
+    def _dismiss_update_banner(self, _button: Any) -> None:
+        """Dismiss the current update banner."""
+        if self._update_banner is not None:
+            self._update_banner.set_revealed(False)
+            self._update_banner = None
+
+        self._update_banner_info = None
+
+    def _open_update_url(self, _button: Any) -> None:
+        """Open the release page in the default browser."""
+        if self._update_banner_info:
+            url = self._update_banner_info.get("url") or self._update_banner_info.get("release_url")
+            try:
+                if url and not webbrowser.open(url):
+                    _LOGGER.warning("No browser accepted the update URL.")
+            except webbrowser.Error as error:
+                _LOGGER.warning("Could not open the update URL: %s", type(error).__name__)
+        self._dismiss_update_banner(None)
 
     def _sync_navigation(self, _stack: Any, _property: Any) -> None:
         current = self.stack.get_visible_child_name() if self.stack is not None else "home"
